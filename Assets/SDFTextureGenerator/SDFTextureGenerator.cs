@@ -22,6 +22,7 @@ public class SDFTextureGenerator
 	public RenderTexture sdfTexture => _sdfTexture;
 
 	[SerializeField] public enum DownSampling { None, Half, Quater }
+	[SerializeField] public enum Precision { _16, _32 }
 
 	static class ShaderIDs
 	{
@@ -34,8 +35,12 @@ public class SDFTextureGenerator
 	}
 
 
-	public void Update( Texture sourceTexture, float sourceValueThreshold, DownSampling downSampling = DownSampling.None, bool _showSource = false )
-	{
+	public void Update
+	(
+		Texture sourceTexture, float sourceValueThreshold, 
+		DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, 
+		bool _showSource = false
+	){
 		if( !sourceTexture ) return;
 
 		if( !_computeShader ) {
@@ -51,9 +56,10 @@ public class SDFTextureGenerator
 			case DownSampling.Half: resolution /= 2; break;
 			case DownSampling.Quater: resolution /= 4; break;
 		}
-		if( !_sdfTexture || _sdfTexture.width != resolution.x || _sdfTexture.height != resolution.y ) {
+		GraphicsFormat sdfFormat = precision == Precision._32 ? GraphicsFormat.R32_SFloat : GraphicsFormat.R16_SFloat;
+		if( !_sdfTexture || _sdfTexture.width != resolution.x || _sdfTexture.height != resolution.y || _sdfTexture.graphicsFormat != sdfFormat ) {
 			if( _sdfTexture ) _sdfTexture.Release();
-			_sdfTexture = new RenderTexture( resolution.x, resolution.y, 0, GraphicsFormat.R16_SFloat, 0 );
+			_sdfTexture = new RenderTexture( resolution.x, resolution.y, 0, sdfFormat, 0 );
 			_sdfTexture.name = "SDFTexture";
 			_sdfTexture.autoGenerateMips = false;
 			_sdfTexture.enableRandomWrite = true;
