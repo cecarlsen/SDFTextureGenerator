@@ -1,0 +1,128 @@
+/*
+	Copyright Carl Emil Carlsen 2021
+	http://cec.dk
+
+	Approximated signed distance field (SDF) computation using the Jump Flooding algorithm (JFA).
+
+	Based on implementation by Demofox.
+	https://www.shadertoy.com/view/Mdy3DK
+
+	Explained here.
+	https://blog.demofox.org/2016/02/29/fast-voronoi-diagrams-and-distance-dield-textures-on-the-gpu-with-the-jump-flooding-algorithm/
+*/
+
+#include "UnityCG.cginc"
+
+#pragma kernel Seed
+#pragma kernel Flood
+#pragma kernel Dist
+#pragma kernel ShowSeeds
+
+
+Texture2D<float4> _SeedTexRead;
+globallycoherent RWTexture2D<int4> _FloodTex;
+Texture2D<int4> _FloodTexRead;
+RWTexture2D<float> _SDFTex;
+
+CBUFFER_START( Often )
+	float _SeedThreshold;
+	float2 _TexelSize;
+CBUFFER_END
+
+CBUFFER_START( Always )
+	int _StepSize;
+CBUFFER_END
+
+SamplerState _LinearClamp;
+
+
+#define NEIGHBOUR_COUNT 9
+static const int2 offsets[ NEIGHBOUR_COUNT ] = {
+	int2( -1, -1 ), int2( 0, -1 ), int2( 1, -1 ),
+	int2( -1, 0 ), int2( 0, 0 ), int2( 1, 0 ),
+	int2( -1, 1 ), int2( 0, 1 ), int2( 1, 1 ),
+};
+
+
+[ numthreads( 1, 1, 1 ) ]
+void Seed( uint2 id : SV_DispatchThreadID )
+{
+	// Sample and test for seed.
+	float2 uv = id * _TexelSize;
+	bool isInsideSeed = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 ).r > _SeedThreshold;
+
+	// Since reading outside texture bounds returns zero, we shift all coordinates (1,1) so that (0,0) can be used to indicate "no seed coordinate".
+	int2 shiftedId = id + int2( 1, 1 );
+
+	// Store inside seeds at xy and outside seeds at zw.
+	_FloodTex[ id ] = isInsideSeed ? int4( shiftedId, 0, 0 ) : int4( 0, 0, shiftedId );
+}
+
+
+
+groupshared int2x3 sharedCoordDist[ 9 ];
+
+[numthreads( 1, 1, NEIGHBOUR_COUNT )]
+void Flood( uint2 id : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID )
+{
+	// Get the jump offset.
+	int2 sampleCoord = id + offsets[ gtId.z ] * _StepSize;
+
+	// Sample.
+	int4 seedCoords = _FloodTex[ sampleCoord ]; // Reads outside bounds will return zeros.
+	int2 shiftedId = id + int2( 1, 1 );
+	int4 diff = seedCoords - shiftedId.xyxy;
+	sharedCoordDist[ gtId.z ] = int2x3(
+		seedCoords.xy, any( seedCoords.xy ) ? dot( diff.xy, diff.xy ) : 9999999, // enough to be ignored
+		seedCoords.zw, any( seedCoords.zw ) ? dot( diff.zw, diff.zw ) : 9999999
+		);
+
+	// Wait until all threads in this group has executed issued reads/writes to groupshared memory.
+	GroupMemoryBarrier();
+
+	// If first thread in group, read from shared memory and find coordinate with smallest distance.
+	if( gtId.z == 0 )
+	{
+		int bestOuterDist = 9999999;
+		int bestInnerDist = 9999999;
+		int2 bestOuterCoord = int2( 0, 0 );
+		int2 bestInnerCoord = int2( 0, 0 );
+		int2x3 data;
+		[unroll]
+		for( int i = 0; i < NEIGHBOUR_COUNT; i++ ){
+			data = sharedCoordDist[ i ];
+			if( data._m02 < bestOuterDist ){
+				bestOuterDist = data._m02;
+				bestOuterCoord = data._m00_m01;
+			}
+			if( data._m12 < bestInnerDist ){
+				bestInnerDist = data._m12;
+				bestInnerCoord = data._m10_m11;
+			}
+		}
+
+		// Write.
+		_FloodTex[ id ] = int4( bestOuterCoord, bestInnerCoord );
+	}
+}
+
+
+[ numthreads( 1, 1, 1 ) ]
+void Dist( uint2 id : SV_DispatchThreadID )
+{
+	int4 closestCoords = _FloodTexRead[ id ];
+	int2 shiftedId = id + int2( 1, 1 );
+	float4 diff = ( closestCoords - int4( shiftedId.xyxy ) ) * _TexelSize.y;
+
+	float outerDist = any( closestCoords.xy ) ? length( diff.xy ) : 0;
+	float innerDist = any( closestCoords.zw ) ? length( diff.zw ) : 0;
+	float signedDist = outerDist - innerDist;
+	_SDFTex[ id ] = signedDist;
+}
+
+
+[ numthreads( 1, 1, 1 ) ]
+void ShowSeeds( uint2 id : SV_DispatchThreadID )
+{
+	_SDFTex[ id ] = any( _FloodTexRead[ id ].xy ) ? 1 : 0;
+}
