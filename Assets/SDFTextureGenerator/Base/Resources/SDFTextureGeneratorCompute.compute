@@ -18,6 +18,7 @@
 #pragma kernel Dist
 #pragma kernel ShowSeeds
 
+#define THREAD_GROUP_WIDTH 8
 
 Texture2D<float4> _SeedTexRead;
 globallycoherent RWTexture2D<int4> _FloodTex;
@@ -27,6 +28,7 @@ RWTexture2D<float> _SDFTex;
 CBUFFER_START( Often )
 	float _SeedThreshold;
 	float2 _TexelSize;
+	uint2 _Resolution;
 CBUFFER_END
 
 CBUFFER_START( Always )
@@ -44,9 +46,11 @@ static const int2 offsets[ NEIGHBOUR_COUNT ] = {
 };
 
 
-[ numthreads( 1, 1, 1 ) ]
+[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
 void Seed( uint2 id : SV_DispatchThreadID )
 {
+	if( id.x >= _Resolution.x || id.y >= _Resolution.y ) return;
+
 	// Sample and test for seed.
 	float2 uv = id * _TexelSize;
 	bool isInsideSeed = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 ).r > _SeedThreshold;
@@ -75,7 +79,7 @@ void Flood( uint2 id : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID )
 	sharedCoordDist[ gtId.z ] = int2x3(
 		seedCoords.xy, any( seedCoords.xy ) ? dot( diff.xy, diff.xy ) : 9999999, // enough to be ignored
 		seedCoords.zw, any( seedCoords.zw ) ? dot( diff.zw, diff.zw ) : 9999999
-		);
+	);
 
 	// Wait until all threads in this group has executed issued reads/writes to groupshared memory.
 	GroupMemoryBarrier();
@@ -107,9 +111,11 @@ void Flood( uint2 id : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID )
 }
 
 
-[ numthreads( 1, 1, 1 ) ]
+[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
 void Dist( uint2 id : SV_DispatchThreadID )
 {
+	if( id.x >= _Resolution.x || id.y >= _Resolution.y ) return;
+
 	int4 closestCoords = _FloodTexRead[ id ];
 	int2 shiftedId = id + int2( 1, 1 );
 	float4 diff = ( closestCoords - int4( shiftedId.xyxy ) ) * _TexelSize.y;
@@ -121,8 +127,10 @@ void Dist( uint2 id : SV_DispatchThreadID )
 }
 
 
-[ numthreads( 1, 1, 1 ) ]
+[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
 void ShowSeeds( uint2 id : SV_DispatchThreadID )
 {
+	if( id.x >= _Resolution.x || id.y >= _Resolution.y ) return;
+
 	_SDFTex[ id ] = any( _FloodTexRead[ id ].xy ) ? 1 : 0;
 }

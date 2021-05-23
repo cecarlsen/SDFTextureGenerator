@@ -1,6 +1,6 @@
 # SDFTextureGenerator
 
-Signed Distance Field (SDF) texture generator for Unity using the Jump Flooding Algoriithm (JFA) implemented in a ComputeShader.
+Signed Distance Field (SDF) texture generator for Unity using the Jump Flooding Algorithm (JFA) implemented in a ComputeShader.
 
 Updated with Unity 2020.3.
 

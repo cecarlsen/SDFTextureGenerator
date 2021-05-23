@@ -19,13 +19,13 @@ public class SDFTextureGeneratorExample : MonoBehaviour
 	SDFTextureGenerator _generator;
 
 
-	void Awake()
+	void OnEnable()
 	{
 		_generator = new SDFTextureGenerator();
 	}
 
 
-	void OnDestroy()
+	void OnDisable()
 	{
 		_generator.Release();
 	}
