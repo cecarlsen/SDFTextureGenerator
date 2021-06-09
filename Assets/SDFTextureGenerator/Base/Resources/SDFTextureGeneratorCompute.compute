@@ -18,6 +18,8 @@
 #pragma kernel Dist
 #pragma kernel ShowSeeds
 
+#pragma multi_compile_local __ ADD_BORDER
+
 #define THREAD_GROUP_WIDTH 8
 
 Texture2D<float4> _SeedTexRead;
@@ -52,11 +54,16 @@ void Seed( uint2 id : SV_DispatchThreadID )
 	if( id.x >= _Resolution.x || id.y >= _Resolution.y ) return;
 
 	// Sample and test for seed.
-	float2 uv = id * _TexelSize;
+	float2 uv = ( id + 0.5 ) * _TexelSize;
 	bool isInsideSeed = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 ).r > _SeedThreshold;
 
 	// Since reading outside texture bounds returns zero, we shift all coordinates (1,1) so that (0,0) can be used to indicate "no seed coordinate".
 	int2 shiftedId = id + int2( 1, 1 );
+
+	// TODO add border
+	#ifdef ADD_BORDER
+		if( id.x == 0 || id.y == 0 || id.x >= _Resolution.x-1 || id.y >= _Resolution.y-1 ) isInsideSeed = true;
+	#endif
 
 	// Store inside seeds at xy and outside seeds at zw.
 	_FloodTex[ id ] = isInsideSeed ? int4( shiftedId, 0, 0 ) : int4( 0, 0, shiftedId );
@@ -118,7 +125,7 @@ void Dist( uint2 id : SV_DispatchThreadID )
 
 	int4 closestCoords = _FloodTexRead[ id ];
 	int2 shiftedId = id + int2( 1, 1 );
-	float4 diff = ( closestCoords - int4( shiftedId.xyxy ) ) * _TexelSize.y;
+	float4 diff = ( closestCoords - int4( shiftedId.xyxy ) ) * max( _TexelSize.x, _TexelSize.y );
 
 	float outerDist = any( closestCoords.xy ) ? length( diff.xy ) : 0;
 	float innerDist = any( closestCoords.zw ) ? length( diff.zw ) : 0;

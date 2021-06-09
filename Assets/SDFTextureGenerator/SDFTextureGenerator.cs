@@ -21,7 +21,10 @@ public class SDFTextureGenerator
 
 	Vector2Int _groupThreadCount;
 
+	bool _addBorderKeyWordEnabled;
+
 	const int threadGroupWidth = 8; // Must match define in compute shader.
+	const string addBorderKeyword = "ADD_BORDER";
 
 	public RenderTexture sdfTexture => _sdfTexture;
 
@@ -44,14 +47,15 @@ public class SDFTextureGenerator
 	public void Update
 	(
 		Texture sourceTexture, float sourceValueThreshold, 
-		DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, 
+		DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorder = false,
 		bool _showSource = false
 	){
+
 		if( !sourceTexture ) return;
 
 		// Ensure resources.
 		if( !_computeShader ) {
-			_computeShader = Object.Instantiate<ComputeShader>( Resources.Load<ComputeShader>( nameof( SDFTextureGenerator ) + "Compute" ) );
+			_computeShader = Object.Instantiate( Resources.Load<ComputeShader>( nameof( SDFTextureGenerator ) + "Compute" ) );
 			_computeShader.hideFlags = HideFlags.HideAndDontSave;
 			_seedKernel = _computeShader.FindKernel( "Seed" );
 			_floodKernel = _computeShader.FindKernel( "Flood" );
@@ -77,13 +81,17 @@ public class SDFTextureGenerator
 			_computeShader.SetTexture( _floodKernel, ShaderIDs.floodTex, _jfaTexture );
 			_computeShader.SetTexture( _distKernel, ShaderIDs.floodTexRead, _jfaTexture );
 			_computeShader.SetTexture( _showSeedsKernel, ShaderIDs.floodTexRead, _jfaTexture );
-			_computeShader.SetVector( ShaderIDs.resolution, (Vector2) resolution );
+			_computeShader.SetInts( ShaderIDs.resolution, new int[]{ resolution.x, resolution.y } );
 			_computeShader.SetVector( ShaderIDs.texelSize, _sdfTexture.texelSize );
 			_groupThreadCount = new Vector2Int(
 				Mathf.CeilToInt( resolution.x / (float) threadGroupWidth ),
 				Mathf.CeilToInt( resolution.y / (float) threadGroupWidth )
 			);
 		}
+
+		if( addBorder && !_addBorderKeyWordEnabled ) _computeShader.EnableKeyword( addBorderKeyword );
+		else if( !addBorder && _addBorderKeyWordEnabled ) _computeShader.DisableKeyword( addBorderKeyword );
+		_addBorderKeyWordEnabled = addBorder;
 
 		// Seed.
 		_computeShader.SetTexture( _seedKernel,  ShaderIDs.seedTexRead, sourceTexture );

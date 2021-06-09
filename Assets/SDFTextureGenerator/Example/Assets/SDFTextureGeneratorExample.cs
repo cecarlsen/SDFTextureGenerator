@@ -12,6 +12,8 @@ public class SDFTextureGeneratorExample : MonoBehaviour
 	[SerializeField] float _sourceValueThreshold = 0.5f;
 	[SerializeField] SDFTextureGenerator.DownSampling _downSampling = SDFTextureGenerator.DownSampling.None;
 	[SerializeField] SDFTextureGenerator.Precision _precision = SDFTextureGenerator.Precision._32;
+	[SerializeField] bool _addBorder = false;
+	[SerializeField] bool _showSource = false;
 
 	[Header("Output")]
 	[SerializeField] UnityEvent<RenderTexture> _sdfTextureEvent = null;
@@ -33,7 +35,7 @@ public class SDFTextureGeneratorExample : MonoBehaviour
 
 	void Update()
 	{
-		_generator.Update( _sourceTexture, _sourceValueThreshold, _downSampling, _precision );
+		_generator.Update( _sourceTexture, _sourceValueThreshold, _downSampling, _precision, _addBorder, _showSource );
 		_sdfTextureEvent.Invoke( _generator.sdfTexture );
 	}
 }
