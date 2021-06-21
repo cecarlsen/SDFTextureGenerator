@@ -6,6 +6,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 
+[ExecuteInEditMode]
 public class SDFTextureGeneratorExample : MonoBehaviour
 {
 	[SerializeField] Texture _sourceTexture = null;
