@@ -1,5 +1,5 @@
 /*
-	Copyright © Carl Emil Carlsen 2021
+	Copyright © Carl Emil Carlsen 2021-2024
 	http://cec.dk
 */
 
@@ -17,20 +17,27 @@ public class SDFTextureGeneratorExample : MonoBehaviour
 	[SerializeField] bool _showSource = false;
 
 	[Header("Output")]
-	[SerializeField] UnityEvent<RenderTexture> _sdfTextureEvent = null;
+	[SerializeField] UnityEvent<RenderTexture> _sdfTextureEvent = new UnityEvent<RenderTexture>();
 
 	SDFTextureGenerator _generator;
 
 
 	void OnEnable()
 	{
+		_generator?.Release();
 		_generator = new SDFTextureGenerator();
 	}
 
 
 	void OnDisable()
 	{
-		_generator.Release();
+		_generator?.Release();
+	}
+
+
+	void Reset()
+	{
+		_generator?.Release();
 	}
 
 

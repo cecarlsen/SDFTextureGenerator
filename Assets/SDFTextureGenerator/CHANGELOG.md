@@ -1,24 +1,28 @@
-1.0.3 (2021/06/21)
-------------------
-
-* Added support for 8-bit texture.
-* Changed distance values to unsigned. To read: sd = ( sample * 2 - 1 ) * max(width,height).
+# Changelog
 
 
-1.0.2 (2021/05/26)
-------------------
+## [1.0.4] - 2024-01-14
 
-* Distance values are now normalized by the max dimension of the texture.
-* Added option for adding border.
+- Refactoring.
 
 
-1.0.1 (2021/05/23)
-------------------
+## [1.0.3] - 2021-06-21
 
-* Refactoring and minor compute shader optimisation (group thread size).
+- Added support for 8-bit texture.
+- Changed distance values to unsigned. To read: sd = ( sample * 2 - 1 ) * max(width,height).
 
 
-1.0.0 (2021/05/19)
-------------------
+## [1.0.2] - 2021-05-26
 
-* Initial public version.
+- Distance values are now normalized by the max dimension of the texture.
+- Added option for adding border.
+
+
+## [1.0.1] - 2021-05-23
+
+- Refactoring and minor compute shader optimisation (group thread size).
+
+
+## [1.0.0] - 2021-05-19
+
+- Initial public version.
