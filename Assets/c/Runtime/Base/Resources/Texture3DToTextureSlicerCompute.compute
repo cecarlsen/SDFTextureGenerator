@@ -1,0 +1,38 @@
+/*
+	Copyright Carl Emil Carlsen 2024
+	http://cec.dk
+*/
+
+#include "UnityCG.cginc"
+
+#pragma kernel _SliceKernel
+
+#define THREAD_GROUP_WIDTH 8
+
+Texture3D _Tex3DRead;
+RWTexture2D<float> _SliceTex;
+
+CBUFFER_START( Once )
+	uint2 _SliceResolution;
+CBUFFER_END
+
+CBUFFER_START( Always )
+	float4x4 _SliceToTex3DMatrix;
+CBUFFER_END
+
+SamplerState _LinearClamp;
+
+
+[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
+void _SliceKernel( uint2 coord : SV_DispatchThreadID )
+{
+	if( coord.x >= _SliceResolution.x || coord.y >= _SliceResolution.y ) return;
+
+	float2 sliceUVCentered = coord / (float2) _SliceResolution - 0.5;
+	
+	float3 tex3dUVCentered = mul( _SliceToTex3DMatrix, float4( sliceUVCentered, 0.0, 1.0 ) );
+	
+	float value = _Tex3DRead.SampleLevel( _LinearClamp, tex3dUVCentered + 0.5, 0.0 ).r;
+	
+	_SliceTex[ coord ] = value;
+}

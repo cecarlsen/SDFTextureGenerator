@@ -22,9 +22,9 @@
 
 #define THREAD_GROUP_WIDTH 8
 
-Texture2D<float4> _SeedTexRead;
-RWTexture2D<int4> _FloodTex;
-Texture2D<int4> _FloodTexRead;
+Texture2D _SeedTexRead;
+RWTexture2D<uint4> _FloodTex;
+Texture2D<uint4> _FloodTexRead;
 RWTexture2D<float> _SdfTex;
 
 CBUFFER_START( Often )
@@ -66,12 +66,12 @@ void _SeedKernel( uint2 coord : SV_DispatchThreadID )
 	#endif
 
 	// Store inside seeds at xy and outside seeds at zw.
-	_FloodTex[ coord ] = isInsideSeed ? int4( seed, 0, 0 ) : int4( 0, 0, seed );
+	_FloodTex[ coord ] = isInsideSeed ? uint4( seed, 0, 0 ) : uint4( 0, 0, seed );
 }
 
 
 
-groupshared int2x3 sharedCoordDist[ NEIGHBOUR_COUNT ];
+groupshared uint2x3 sharedCoordDist[ NEIGHBOUR_COUNT ];
 
 [numthreads( 1, 1, NEIGHBOUR_COUNT )]
 void _FloodKernel( uint2 coord : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID )
@@ -94,27 +94,27 @@ void _FloodKernel( uint2 coord : SV_DispatchThreadID, uint3 gtId : SV_GroupThrea
 	// If first thread in group, read from shared memory and find coordinate with smallest distance.
 	if( gtId.z == 0 )
 	{
-		int bestOuterDist = 9999999;
-		int bestInnerDist = 9999999;
-		int2 bestOuterCoord = int2( 0, 0 );
-		int2 bestInnerCoord = int2( 0, 0 );
-		int2x3 data;
+		uint bestOuterDist = 9999999;
+		uint bestInnerDist = 9999999;
+		uint2 bestOuterCoord = int2( 0, 0 );
+		uint2 bestInnerCoord = int2( 0, 0 );
+		uint2x3 data;
 		[unroll]
 		for( int i = 0; i < NEIGHBOUR_COUNT; i++ )
 		{
 			data = sharedCoordDist[ i ];
-			if( data._m02 < bestOuterDist ){
-				bestOuterDist = data._m02;
-				bestOuterCoord = data._m00_m01;
+			if( data._m02 < bestInnerDist ){
+				bestInnerDist = data._m02;
+				bestInnerCoord = data._m00_m01;
 			}
-			if( data._m12 < bestInnerDist ){
-				bestInnerDist = data._m12;
-				bestInnerCoord = data._m10_m11;
+			if( data._m12 < bestOuterDist ){
+				bestOuterDist = data._m12;
+				bestOuterCoord = data._m10_m11;
 			}
 		}
 
 		// Write.
-		_FloodTex[ coord ] = int4( bestOuterCoord, bestInnerCoord );
+		_FloodTex[ coord ] = uint4( bestInnerCoord, bestOuterCoord );
 	}
 }
 

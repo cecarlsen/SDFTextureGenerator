@@ -1,0 +1,234 @@
+/*
+	Copyright Carl Emil Carlsen 2021-2024
+	http://cec.dk
+
+	Approximated signed distance field (SDF) computation using the Jump Flooding algorithm (JFA).
+
+	Based on implementation by Demofox.
+	https://www.shadertoy.com/view/Mdy3DK
+
+	Explained here.
+	https://blog.demofox.org/2016/02/29/fast-voronoi-diagrams-and-distance-dield-textures-on-the-gpu-with-the-jump-flooding-algorithm/
+*/
+
+#include "UnityCG.cginc"
+
+#pragma kernel _SeedKernel
+#pragma kernel _FloodKernel
+#pragma kernel _DistKernel
+#pragma kernel _ShowSeedsKernel
+
+#pragma multi_compile_local __ _ADD_BORDERS
+
+#define THREAD_GROUP_LENGTH 8
+
+Texture3D _SeedTexRead;
+RWTexture3D<uint4> _FloodTex;
+Texture3D<uint4> _FloodTexRead;
+RWTexture3D<float> _SdfTex;
+
+CBUFFER_START( Often )
+	float _SeedThreshold;
+	float3 _TexelSize;
+	uint3 _Resolution;
+CBUFFER_END
+
+CBUFFER_START( Always )
+	int _StepSize;
+CBUFFER_END
+
+SamplerState _LinearClamp;
+
+
+
+
+#define NEIGHBOUR_COUNT 19
+static const int3 offsets[ NEIGHBOUR_COUNT ] = {
+						int3( 0, -1, -1 ),				
+	int3( -1,  0, -1 ), int3( 0,  0, -1 ), int3( 1,  0, -1 ),
+						int3( 0,  1, -1 ),
+	int3( -1, -1,  0 ), int3( 0, -1,  0 ), int3( 1, -1,  0 ),
+	int3( -1,  0,  0 ), int3( 0,  0,  0 ), int3( 1,  0,  0 ),
+	int3( -1,  1,  0 ), int3( 0,  1,  0 ), int3( 1,  1,  0 ),
+						int3( 0, -1,  1 ),
+	int3( -1,  0,  1 ), int3( 0,  0,  1 ), int3( 1,  0,  1 ),
+						int3( 0,  1,  1 ),
+};
+
+/*
+// CHEAP AND DIRTY
+#define NEIGHBOUR_COUNT 7
+static const int3 offsets[ NEIGHBOUR_COUNT ] = {		
+						 int3( 0,  0, -1 ),
+						int3( 0, -1,  0 ), 
+	int3( -1,  0,  0 ), int3( 0,  0,  0 ), int3( 1,  0,  0 ),
+						 int3( 0,  1,  0 ), 
+						int3( 0,  0,  1 ),					
+};
+*/
+
+/*
+// OVERKILL.
+#define NEIGHBOUR_COUNT 27
+static const int3 offsets[ NEIGHBOUR_COUNT ] = {
+	int3( -1, -1, -1 ), int3( 0, -1, -1 ), int3( 1, -1, -1 ),
+	int3( -1,  0, -1 ), int3( 0,  0, -1 ), int3( 1,  0, -1 ),
+	int3( -1,  1, -1 ), int3( 0,  1, -1 ), int3( 1,  1, -1 ),
+	int3( -1, -1,  0 ), int3( 0, -1,  0 ), int3( 1, -1,  0 ),
+	int3( -1,  0,  0 ), int3( 0,  0,  0 ), int3( 1,  0,  0 ),
+	int3( -1,  1,  0 ), int3( 0,  1,  0 ), int3( 1,  1,  0 ),
+	int3( -1, -1,  1 ), int3( 0, -1,  1 ), int3( 1, -1,  1 ),
+	int3( -1,  0,  1 ), int3( 0,  0,  1 ), int3( 1,  0,  1 ),
+	int3( -1,  1,  1 ), int3( 0,  1,  1 ), int3( 1,  1,  1 )
+};
+*/
+
+
+
+uint4 Pack2xUint4( uint4 coordsA, uint4 coordsB )
+{
+	const uint mask = 0xFFFF; // 00000000000000001111111111111111
+	return uint4(
+		( coordsA.x & mask ) | ( coordsA.y << 16 ),
+		( coordsA.z & mask ) | ( coordsA.w << 16 ),
+		( coordsB.x & mask ) | ( coordsB.y << 16 ),
+		( coordsB.z & mask ) | ( coordsB.w << 16 )
+	);
+}
+
+void Unpack2xUint4( uint4 packed, out uint4 coordsA, out uint4 coordsB )
+{
+	const uint mask = 0xFFFF; // 00000000000000001111111111111111
+	coordsA = uint4(
+		packed.x & mask,
+		packed.x >> 16,
+		packed.y & mask,
+		packed.y >> 16
+	);
+	coordsB = uint4(
+		packed.z & mask,
+		packed.z >> 16,
+		packed.w & mask,
+		packed.w >> 16
+	);
+}
+
+
+
+[numthreads( THREAD_GROUP_LENGTH, THREAD_GROUP_LENGTH, THREAD_GROUP_LENGTH )]
+void _SeedKernel( uint3 coord : SV_DispatchThreadID )
+{
+	if( coord.x >= _Resolution.x || coord.y >= _Resolution.y || coord.z >= _Resolution.z ) return;
+
+	// Sample and test for seed.
+	float3 uv = ( coord + 0.5 ) * _TexelSize;
+	bool isInsideSeed = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 ).r > _SeedThreshold;
+
+	// Since reading outside texture bounds returns zero, we shift all coordinates (1,1) so that (0,0) can be used to indicate "no seed coordinate".
+	int3 seed = coord + int3( 1, 1, 1 );
+
+	// TODO add border
+	#ifdef _ADD_BORDERS
+		if( coord.x == 0 || coord.y == 0 || coord.z == 0 || coord.x >= _Resolution.x-1 || coord.y >= _Resolution.y-1 || coord.z >= _Resolution.z-1 ) isInsideSeed = true;
+	#endif
+
+	// Store inside seeds at xy and outside seeds at zw.
+	uint4 seedInside = 0, seedOutside = 0;
+	if( isInsideSeed ) seedInside.xyz = seed;
+	else seedOutside.xyz = seed;
+	
+	_FloodTex[ coord ] = Pack2xUint4( seedInside, seedOutside );
+}
+
+
+
+groupshared uint2x4 sharedCoordDist[ NEIGHBOUR_COUNT ]; // I did try to pack this into uint4's, but it turned out to be slower. 
+
+
+[numthreads( 1, 1, NEIGHBOUR_COUNT )]
+void _FloodKernel( uint3 coord : SV_GroupID, uint3 gtId : SV_GroupThreadID )
+{
+	// Get the jump offset.
+	uint neighborI = gtId.z;
+	int3 sampleCoord = coord + offsets[ neighborI ] * _StepSize;
+
+	// Sample.
+	int4 packed = _FloodTex[ sampleCoord ]; // Reads outside bounds will return zeros.
+	int4 seedInside, seedOutside;
+	Unpack2xUint4( packed, seedInside, seedOutside );
+	
+	int3 shiftedCoord = coord + int3( 1, 1, 1 );
+	int3 insideDiff = seedInside.xyz - shiftedCoord;
+	int3 outsideDiff = seedOutside.xyz - shiftedCoord;
+	uint4 insideData = uint4( seedInside.xyz, any( seedInside.xyz ) ? dot( insideDiff, insideDiff ) : 9999999 ); // enough to be ignored
+	uint4 outsideData = uint4( seedOutside.xyz, any( seedOutside.xyz ) ? dot( outsideDiff, outsideDiff ) : 9999999 );
+	
+	sharedCoordDist[ neighborI ] = uint2x4( insideData, outsideData );
+
+	// Wait until all threads in this group has executed issued reads/writes to groupshared memory.
+	GroupMemoryBarrierWithGroupSync();
+	
+	// If first thread in group, read from shared memory and find coordinate with smallest distance.
+	if( neighborI == 0 )
+	{
+		uint bestOuterDist = 9999999;
+		uint bestInnerDist = 9999999;
+		seedInside = 0;
+		seedOutside = 0;
+		uint2x4 data;
+		[unroll]
+		for( int i = 0; i < NEIGHBOUR_COUNT; i++ )
+		{
+			data = sharedCoordDist[ i ];
+			if( data._m03 < bestInnerDist ){
+				bestInnerDist = data._m03;
+				seedInside.xyz = data._m00_m01_m02;
+			}
+			if( data._m13 < bestOuterDist ){
+				bestOuterDist = data._m13;
+				seedOutside.xyz = data._m10_m11_m12;
+			}
+		}
+
+		// Write.
+		_FloodTex[ coord ] = Pack2xUint4( seedInside, seedOutside );
+	}
+}
+
+
+[numthreads( THREAD_GROUP_LENGTH, THREAD_GROUP_LENGTH, THREAD_GROUP_LENGTH )]
+void _DistKernel( uint3 coord : SV_DispatchThreadID )
+{
+	if( coord.x >= _Resolution.x || coord.y >= _Resolution.y || coord.z >= _Resolution.z ) return;
+
+	uint4 packed = _FloodTexRead[ coord ];
+	uint4 closestInnerSeed, closestOuterSeed;
+	Unpack2xUint4( packed, closestInnerSeed, closestOuterSeed );
+
+	int3 shiftedCoord = coord + int3( 1, 1, 1 );
+	float maxTexelSize = max( max( _TexelSize.x, _TexelSize.y ), _TexelSize.z );
+	float3 innerDiff = ( (int3) closestInnerSeed.xyz ) - shiftedCoord;
+	float3 outerDiff = ( (int3) closestOuterSeed.xyz ) - shiftedCoord;
+
+	float outerDist = any( closestInnerSeed.xyz ) ? length( innerDiff ) : 0.0;
+	float innerDist = any( closestOuterSeed.xyz ) ? length( outerDiff ) : 0.0;
+	float sd = ( outerDist - innerDist ) * maxTexelSize; // If coord is inside then outerDist will be zero, else innerDist will be zero.
+	
+	_SdfTex[ coord ] = ( sd * 0.5 ) + 0.5; // Normalize (0.0 to 1.0).
+}
+
+
+[numthreads( THREAD_GROUP_LENGTH, THREAD_GROUP_LENGTH, THREAD_GROUP_LENGTH )]
+void _ShowSeedsKernel( uint3 coord : SV_DispatchThreadID )
+{
+	if( coord.x >= _Resolution.x || coord.y >= _Resolution.y || coord.z >= _Resolution.z ) return;
+
+	uint4 seedInside, seedOutside;
+	Unpack2xUint4( _FloodTexRead[ coord ], seedInside, seedOutside );
+	
+	// Highlight inside.
+	_SdfTex[ coord ] = any( seedInside.xyz ) ? 1 : 0;
+	
+	// ... or highlight outside.
+	//_SdfTex[ id ] = any( seedOutside.xyz ) ? 1 : 0;
+}
