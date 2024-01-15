@@ -3,7 +3,7 @@
 
 ## [1.0.5] - 2024-01-15
 
-- Changed name to MaskTextureToSdfTextureProcedure and put inside namespace Simplex.Procedures.
+- Changed name to ScalarTextureToSdfTextureProcedure and put inside namespace Simplex.Procedures.
 
 
 ## [1.0.4] - 2024-01-14

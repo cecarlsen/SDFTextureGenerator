@@ -5,8 +5,8 @@ Signed Distance Field (SDF) texture generator for Unity using the Jump Flooding 
 Updated with Unity 2023.2.
 
 There are three procedures in this repo:
- - MaskTextureToSdfTextureProcedure (pixels).
- - MaskTexture3DToSdfTexture3DProcedure (voxels).
+ - ScalarTextureToSdfTextureProcedure (pixels).
+ - ScalarTexture3DToSdfTexture3DProcedure (voxels).
  - Texture3DToTextureSliceProcedure (voxels to pixels)
 
 ![Splash](https://raw.githubusercontent.com/cecarlsen/SDFTextureGenerator/master/ReadmeImages/Splash.jpg)
