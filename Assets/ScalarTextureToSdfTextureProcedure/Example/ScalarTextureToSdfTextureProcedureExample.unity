@@ -751,7 +751,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 1121208506}
+  m_Texture: {fileID: 1259756328}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -812,8 +812,8 @@ MonoBehaviour:
   _sourceTexture: {fileID: 8400000, guid: 86d83d894381f384d902929ff396dcff, type: 2}
   _sourceValueThreshold: 0
   _downSampling: 0
-  _precision: 2
-  _addBorder: 0
+  _precision: 1
+  _addBorders: 0
   _showSource: 0
   _sdfTextureEvent:
     m_PersistentCalls:
@@ -1037,7 +1037,7 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1047355575}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
---- !u!84 &1121208506
+--- !u!84 &1259756328
 RenderTexture:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1180,7 +1180,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Raw SDF (0.0 to 1.0 is -1.0 to 1.0)
+  m_Text: Raw SDF
 --- !u!222 &1351533110
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1262,7 +1262,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 1121208506}
+  m_Texture: {fileID: 1259756328}
   m_UVRect:
     serializedVersion: 2
     x: 0

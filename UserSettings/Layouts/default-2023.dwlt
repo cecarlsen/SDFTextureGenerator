@@ -120,7 +120,7 @@ MonoBehaviour:
   m_MinSize: {x: 300, y: 100}
   m_MaxSize: {x: 24288, y: 16192}
   vertical: 0
-  controlID: 134
+  controlID: 103
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -145,7 +145,7 @@ MonoBehaviour:
   m_MinSize: {x: 100, y: 100}
   m_MaxSize: {x: 8096, y: 16192}
   vertical: 1
-  controlID: 16
+  controlID: 17
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -223,7 +223,7 @@ MonoBehaviour:
   m_MinSize: {x: 100, y: 100}
   m_MaxSize: {x: 8096, y: 16192}
   vertical: 1
-  controlID: 75
+  controlID: 49
 --- !u!114 &10
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -967,9 +967,9 @@ MonoBehaviour:
   m_AudioPlay: 0
   m_DebugDrawModesUseInteractiveLightBakingData: 0
   m_Position:
-    m_Target: {x: -0.42685744, y: 0.1790714, z: -0.6553861}
+    m_Target: {x: -0.069440916, y: -0.029763594, z: 0.14392596}
     speed: 2
-    m_Value: {x: -0.42685744, y: 0.1790714, z: -0.6553861}
+    m_Value: {x: -0.069440916, y: -0.029763594, z: 0.14392596}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 2
@@ -1015,13 +1015,13 @@ MonoBehaviour:
     m_GridAxis: 1
     m_gridOpacity: 0.5
   m_Rotation:
-    m_Target: {x: 0.092201665, y: 0.17221792, z: -0.016192904, w: 0.98060054}
+    m_Target: {x: 0.117701426, y: 0.25957313, z: -0.031896666, w: 0.95799667}
     speed: 2
-    m_Value: {x: -0.09220167, y: -0.17221792, z: 0.016192904, w: -0.98060054}
+    m_Value: {x: -0.117701426, y: -0.25957316, z: 0.031896666, w: -0.9579967}
   m_Size:
-    m_Target: 0.32564723
+    m_Target: 0.679359
     speed: 2
-    m_Value: 0.32564723
+    m_Value: 0.679359
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -1129,7 +1129,7 @@ MonoBehaviour:
       scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: e6d2ffff28dfffff08e2ffffa0f4ffff10fbffff02530000
+      m_ExpandedIDs: bcf7ffff10fbffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -1201,7 +1201,7 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/ScalarTextureToSdfTextureProcedure
+    - Assets/Texture3DToTextureSliceProcedure
     m_Globs: []
     m_ProductIds: 
     m_AnyWithAssetOrigin: 0
@@ -1219,7 +1219,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: a0820000
     m_LastClickedID: 33440
-    m_ExpandedIDs: 000000005c5100005e51000060510000625100006451000066510000685100006a5100006c5100006e51000070510000
+    m_ExpandedIDs: 0000000020510000225100002451000026510000285100002a5100002c5100002e510000305100003251000034510000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1248,7 +1248,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 000000005c5100005e51000060510000625100006451000066510000685100006a5100006c5100006e51000070510000
+    m_ExpandedIDs: 0000000020510000225100002451000026510000285100002a5100002c5100002e510000305100003251000034510000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 

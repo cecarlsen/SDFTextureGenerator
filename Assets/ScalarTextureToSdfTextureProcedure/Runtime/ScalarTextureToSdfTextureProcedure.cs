@@ -20,17 +20,17 @@ namespace Simplex.Procedures
 		int _DistKernel;
 		int _ShowSeedsKernel;
 
-		LocalKeyword _ADD_BORDER;
+		LocalKeyword _ADD_BORDERS;
 
 		Vector2Int _groupThreadCount;
 
 		const int threadGroupWidth = 8; // Must match define in compute shader.
-		const string addBorderKeyword = "ADD_BORDER";
 
 		public RenderTexture sdfTexture => _sdfTexture;
 
-		[SerializeField] public enum DownSampling { None, Half, Quater }
-		[SerializeField] public enum Precision { _8, _16, _32 }
+		[System.Serializable] public enum DownSampling { None, Half, Quater }
+		[System.Serializable] public enum Precision { _16, _32 }
+
 
 		static class ShaderIDs
 		{
@@ -55,14 +55,14 @@ namespace Simplex.Procedures
 			_DistKernel = _computeShader.FindKernel( nameof( _DistKernel ) );
 			_ShowSeedsKernel = _computeShader.FindKernel( nameof( _ShowSeedsKernel ) );
 
-			_ADD_BORDER = new LocalKeyword( _computeShader, nameof( _ADD_BORDER ) );
+			_ADD_BORDERS = new LocalKeyword( _computeShader, nameof( _ADD_BORDERS ) );
 		}
 
 
 		public void Update
 		(
 			Texture sourceTexture, float sourceValueThreshold, 
-			DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorder = false,
+			DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorders = false,
 			bool _showSource = false
 		){
 
@@ -76,9 +76,8 @@ namespace Simplex.Procedures
 			}
 			GraphicsFormat sdfFormat;
 			switch( precision ) {
-				case Precision._8: sdfFormat = GraphicsFormat.R8_UNorm; break;		// R8_SNorm is not supported for async download, so we use R8_UNorm.
-				case Precision._16: sdfFormat = GraphicsFormat.R16_UNorm; break;	// ... and let the rest of the precision formats follow the same style.
-				default: sdfFormat = GraphicsFormat.R32_SFloat; break;				// ... R32 does not have a UNorm version, so we choose SFloat and use as unsigned.
+				case Precision._16: sdfFormat = GraphicsFormat.R16_SFloat; break;
+				default: sdfFormat = GraphicsFormat.R32_SFloat; break;
 			}
 			if( !_sdfTexture || _sdfTexture.width != resolution.x || _sdfTexture.height != resolution.y || _sdfTexture.graphicsFormat != sdfFormat ) {
 				_sdfTexture?.Release();
@@ -102,7 +101,7 @@ namespace Simplex.Procedures
 			}
 
 			// Set keywords.
-			if( _computeShader.IsKeywordEnabled( _ADD_BORDER ) != addBorder ) _computeShader.SetKeyword( _ADD_BORDER, addBorder );
+			if( _computeShader.IsKeywordEnabled( _ADD_BORDERS ) != addBorders ) _computeShader.SetKeyword( _ADD_BORDERS, addBorders );
 
 			// Seed.
 			_computeShader.SetTexture( _SeedKernel,  ShaderIDs._SeedTexRead, sourceTexture );

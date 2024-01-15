@@ -18,7 +18,7 @@
 #pragma kernel _DistKernel
 #pragma kernel _ShowSeedsKernel
 
-#pragma multi_compile_local __ _ADD_BORDER
+#pragma multi_compile_local __ _ADD_BORDERS
 
 #define THREAD_GROUP_WIDTH 8
 
@@ -61,7 +61,7 @@ void _SeedKernel( uint2 coord : SV_DispatchThreadID )
 	int2 seed = coord + int2( 1, 1 );
 
 	// TODO add border
-	#ifdef _ADD_BORDER
+	#ifdef _ADD_BORDERS
 		if( coord.x == 0 || coord.y == 0 || coord.x >= _Resolution.x-1 || coord.y >= _Resolution.y-1 ) isInsideSeed = true;
 	#endif
 
@@ -126,12 +126,18 @@ void _DistKernel( uint2 coord : SV_DispatchThreadID )
 
 	int4 closestCoords = _FloodTexRead[ coord ];
 	int2 shiftedCoord = coord + int2( 1, 1 );
-	float4 diff = ( closestCoords - int4( shiftedCoord.xyxy ) ) * max( _TexelSize.x, _TexelSize.y );
+	float4 diff = closestCoords - shiftedCoord.xyxy;
 
 	float outerDist = any( closestCoords.xy ) ? length( diff.xy ) : 0;
 	float innerDist = any( closestCoords.zw ) ? length( diff.zw ) : 0;
 	float sd = outerDist - innerDist; // If coord is inside then outerDist will be zero, else innerDist will be zero.
-	_SdfTex[ coord ] = ( sd * 0.5 ) + 0.5; // Normalize (0.0-1.0).
+	
+	// Use same convension as Unity's SDF Bake Tool
+	// "the underlying surface scales such that the largest side of the Texture is of length 1".
+	// https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html
+	sd *= min( _TexelSize.x, _TexelSize.y );
+	
+	_SdfTex[ coord ] = sd;
 }
 
 

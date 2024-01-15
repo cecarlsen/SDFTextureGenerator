@@ -15,7 +15,7 @@ namespace Simplex.Procedures.Examples
 		[SerializeField] float _sourceValueThreshold = 0.5f;
 		[SerializeField] ScalarTextureToSdfTextureProcedure.DownSampling _downSampling = ScalarTextureToSdfTextureProcedure.DownSampling.None;
 		[SerializeField] ScalarTextureToSdfTextureProcedure.Precision _precision = ScalarTextureToSdfTextureProcedure.Precision._32;
-		[SerializeField] bool _addBorder = false;
+		[SerializeField] bool _addBorders = false;
 		[SerializeField] bool _showSource = false;
 
 		[Header("Output")]
@@ -45,7 +45,7 @@ namespace Simplex.Procedures.Examples
 
 		void Update()
 		{
-			_generator.Update( _sourceTexture, _sourceValueThreshold, _downSampling, _precision, _addBorder, _showSource );
+			_generator.Update( _sourceTexture, _sourceValueThreshold, _downSampling, _precision, _addBorders, _showSource );
 			_sdfTextureEvent.Invoke( _generator.sdfTexture );
 		}
 	}

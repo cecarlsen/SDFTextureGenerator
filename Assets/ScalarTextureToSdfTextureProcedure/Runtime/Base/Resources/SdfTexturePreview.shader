@@ -1,5 +1,5 @@
 /*
-	Copyright © Carl Emil Carlsen 2021
+	Copyright © Carl Emil Carlsen 2021-2024
 	http://cec.dk
 */
 
@@ -36,6 +36,7 @@ Shader "Unlit/SdfTexturePreview"
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
+			float4 _MainTex_TexelSize;
 
 
 			ToFrag Vert( ToVert v )
@@ -46,15 +47,17 @@ Shader "Unlit/SdfTexturePreview"
 				return o;
 			}
 
+
 			half4 Frag( ToFrag i ) : SV_Target
 			{
 				float dist = tex2D( _MainTex, i.uv ).r;
 
-				// Convert from unsiged normalized to signed normalized.
-				dist = dist * 2.0 - 1.0; // MAD
+				// Expect scaling to follow the convension of Unity's SDF Bake Tool.
+				// "the underlying surface scales such that the largest side of the Texture is of length 1".
+				// https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html
 				
 				// Apply colors (blue is negative, red is positive).
-				half4 col = half4( 0.1, 0.1, 0.1, 1 );
+				half4 col = half4( 0.05.xxx, 1 );
 				if( dist > 0 ) col.r = 0.2 + dist;
 				else col.b = 0.2 - dist;
 				float t = 1 - abs( frac( dist * 10 ) * 2 - 1 );

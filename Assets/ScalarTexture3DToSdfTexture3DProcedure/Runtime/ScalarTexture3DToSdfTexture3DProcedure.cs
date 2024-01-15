@@ -28,8 +28,8 @@ namespace Simplex.Procedures
 
 		public RenderTexture sdfTexture => _sdfTexture;
 
-		[SerializeField] public enum DownSampling { None, Half, Quater }
-		[SerializeField] public enum Precision { _8, _16, _32 }
+		[System.Serializable] public enum DownSampling { None, Half, Quater }
+		[System.Serializable] public enum Precision { _16, _32 }
 
 		static class ShaderIDs
 		{
@@ -77,9 +77,8 @@ namespace Simplex.Procedures
 			}
 			GraphicsFormat sdfFormat;
 			switch( precision ) {
-				case Precision._8: sdfFormat = GraphicsFormat.R8_UNorm; break;		// R8_SNorm is not supported for async download, so we use R8_UNorm.
-				case Precision._16: sdfFormat = GraphicsFormat.R16_UNorm; break;	// ... and let the rest of the precision formats follow the same style.
-				default: sdfFormat = GraphicsFormat.R32_SFloat; break;				// ... R32 does not have a UNorm version, so we choose SFloat and use as unsigned.
+				case Precision._16: sdfFormat = GraphicsFormat.R16_SFloat; break;
+				default: sdfFormat = GraphicsFormat.R32_SFloat; break;
 			}
 			if( !_sdfTexture || _sdfTexture.width != resolution.x || _sdfTexture.height != resolution.y || _sdfTexture.volumeDepth != resolution.z || _sdfTexture.graphicsFormat != sdfFormat ) {
 				_sdfTexture?.Release();

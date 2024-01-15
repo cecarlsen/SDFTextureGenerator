@@ -206,15 +206,19 @@ void _DistKernel( uint3 coord : SV_DispatchThreadID )
 	Unpack2xUint4( packed, closestInnerSeed, closestOuterSeed );
 
 	int3 shiftedCoord = coord + int3( 1, 1, 1 );
-	float maxTexelSize = max( max( _TexelSize.x, _TexelSize.y ), _TexelSize.z );
 	float3 innerDiff = ( (int3) closestInnerSeed.xyz ) - shiftedCoord;
 	float3 outerDiff = ( (int3) closestOuterSeed.xyz ) - shiftedCoord;
 
 	float outerDist = any( closestInnerSeed.xyz ) ? length( innerDiff ) : 0.0;
 	float innerDist = any( closestOuterSeed.xyz ) ? length( outerDiff ) : 0.0;
-	float sd = ( outerDist - innerDist ) * maxTexelSize; // If coord is inside then outerDist will be zero, else innerDist will be zero.
+	float sd = outerDist - innerDist; // If coord is inside then outerDist will be zero, else innerDist will be zero.
 	
-	_SdfTex[ coord ] = ( sd * 0.5 ) + 0.5; // Normalize (0.0 to 1.0).
+	// Use same convension as Unity's SDF Bake Tool
+	// "the underlying surface scales such that the largest side of the Texture is of length 1".
+	// https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html
+	sd *= min( min( _TexelSize.x, _TexelSize.y ), _TexelSize.y);
+	
+	_SdfTex[ coord ] = sd;
 }
 
 

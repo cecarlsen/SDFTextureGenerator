@@ -44,7 +44,7 @@ namespace Simplex.Procedures
 		{
 			if( !_sliceTexture || _sliceTexture.width != sliceResolution.x || _sliceTexture.height != sliceResolution.y ) {
 				_sliceTexture?.Release();
-				_sliceTexture = CreateTexture( "SliceTexture", sliceResolution, GraphicsFormat.R8_UNorm );
+				_sliceTexture = CreateTexture( "SliceTexture", sliceResolution, texture3D.graphicsFormat );
 				_computeShader.SetTexture( _SliceKernel, ShaderIDs._SliceTex, _sliceTexture );
 				_computeShader.SetInts( ShaderIDs._SliceResolution, new int[] { sliceResolution.x, sliceResolution.y } );
 				_groupThreadCount = new Vector2Int(
@@ -68,14 +68,27 @@ namespace Simplex.Procedures
 		}
 
 
-		static RenderTexture CreateTexture( string name, Vector2Int resolution, GraphicsFormat format )
+		static RenderTexture CreateTexture( string name, Vector2Int resolution, GraphicsFormat sourceFormat )
 		{
-			/*
-			Debug.Log( GraphicsFormatUtility.GetColorComponentCount( format ) + ", " + GraphicsFormatUtility.GetAlphaComponentCount( format ) );
-			uint channelCount = GraphicsFormatUtility.GetComponentCount( format );
-			int bitDepth = GraphicsFormatUtility.GetDepthBits( format );
-			Debug.Log( format + ", " + channelCount + ", " + bitDepth );
-			*/
+			// Note: GraphicsFormatUtility is shit. For example, GraphicsFormatUtility.IsHalfFormat( GraphicsFormat.R16_UNorm ) returns false.
+			
+			GraphicsFormat format;
+			if( GraphicsFormatUtility.IsCompressedFormat( sourceFormat ) )
+			{
+				switch( sourceFormat )
+				{
+					case GraphicsFormat.RGBA_DXT1_UNorm:
+						format = GraphicsFormat.R8G8B8A8_UNorm;
+						break;
+						// TODO: handle other compressed cases ...
+					default:
+						throw new System.Exception( "Format needs support" );
+				}
+				//Debug.Log( sourceFormat + " -> " + format );
+			} else {
+				format = sourceFormat;
+			}
+			
 
 			RenderTexture rt = new RenderTexture( resolution.x, resolution.y, 0, format, 0 );
 			rt.name = name;
