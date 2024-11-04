@@ -31,7 +31,7 @@ namespace Simplex.Procedures
 
 		[System.Serializable] public enum DownSampling { None, Half, Quater }
 		[System.Serializable] public enum Precision { _16, _32 }
-		[System.Serializable] public enum SourceChannel { R, G, B, Luminance }
+		[System.Serializable] public enum SourceChannel { R, G, B, A, Luminance }
 
 
 		static class ShaderIDs
