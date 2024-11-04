@@ -9,7 +9,7 @@ using UnityEngine.Rendering;
 
 namespace Simplex.Procedures
 {
-	public class ScalarTexture3DToSdfTexture3DProcedure
+	public class MaskToSdfTexture3DProcedure
 	{
 		RenderTexture _sdfTexture;
 		RenderTexture _floodTexture;
@@ -21,6 +21,7 @@ namespace Simplex.Procedures
 		int _ShowSeedsKernel;
 
 		LocalKeyword _ADD_BORDERS;
+		LocalKeyword[] _sourceChannelKeywords;
 
 		Vector3Int _groupThreadCount;
 
@@ -30,6 +31,7 @@ namespace Simplex.Procedures
 
 		[System.Serializable] public enum DownSampling { None, Half, Quater }
 		[System.Serializable] public enum Precision { _16, _32 }
+		[System.Serializable] public enum SourceChannel { R, G, B, Luminance }
 
 		static class ShaderIDs
 		{
@@ -40,13 +42,12 @@ namespace Simplex.Procedures
 			public static readonly int _Resolution = Shader.PropertyToID( nameof( _Resolution ) );
 			public static readonly int _StepSize = Shader.PropertyToID( nameof( _StepSize ) );
 			public static readonly int _SeedThreshold = Shader.PropertyToID( nameof( _SeedThreshold ) );
-			public static readonly int _TexelSize = Shader.PropertyToID( nameof( _TexelSize ) );
 		}
 
 
-		public ScalarTexture3DToSdfTexture3DProcedure()
+		public MaskToSdfTexture3DProcedure()
 		{
-			_computeShader = Object.Instantiate( Resources.Load<ComputeShader>( nameof( ScalarTexture3DToSdfTexture3DProcedure ) ) );
+			_computeShader = Object.Instantiate( Resources.Load<ComputeShader>( nameof( MaskToSdfTexture3DProcedure ) ) );
 			_computeShader.hideFlags = HideFlags.HideAndDontSave;
 
 			_SeedKernel = _computeShader.FindKernel( nameof( _SeedKernel ) );
@@ -55,13 +56,18 @@ namespace Simplex.Procedures
 			_ShowSeedsKernel = _computeShader.FindKernel( nameof( _ShowSeedsKernel ) );
 
 			_ADD_BORDERS = new LocalKeyword( _computeShader, nameof( _ADD_BORDERS ) );
+			var sourceChannelKeywordNames = System.Enum.GetNames( typeof( SourceChannel ) );
+			_sourceChannelKeywords = new LocalKeyword[ sourceChannelKeywordNames.Length ];
+			for( int sc = 0; sc < _sourceChannelKeywords.Length; sc++ ){
+				_sourceChannelKeywords[ sc ] = new LocalKeyword( _computeShader, "_" + sourceChannelKeywordNames[ sc ].ToUpper() );
+			}
 		}
 
 
 		public void Update
 		(
 			Texture sourceTexture, float sourceValueThreshold, 
-			DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorders = false,
+			SourceChannel sourceChannel = SourceChannel.R, DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorders = false,
 			bool _showSource = false
 		){
 			if( !sourceTexture ) return;
@@ -94,7 +100,6 @@ namespace Simplex.Procedures
 				_computeShader.SetTexture( _DistKernel, ShaderIDs._FloodTexRead, _floodTexture );
 				_computeShader.SetTexture( _ShowSeedsKernel, ShaderIDs._FloodTexRead, _floodTexture );
 				_computeShader.SetInts( ShaderIDs._Resolution, new int[]{ resolution.x, resolution.y, resolution.z } );
-				_computeShader.SetVector( ShaderIDs._TexelSize, TexelSize3D( _sdfTexture ) );
 				_groupThreadCount = new Vector3Int(
 					Mathf.CeilToInt( resolution.x / (float) threadGroupLength ),
 					Mathf.CeilToInt( resolution.y / (float) threadGroupLength ),
@@ -104,6 +109,12 @@ namespace Simplex.Procedures
 
 			// Set keywords.
 			if( _computeShader.IsKeywordEnabled( _ADD_BORDERS ) != addBorders ) _computeShader.SetKeyword( _ADD_BORDERS, addBorders );
+			int sourceChannelIndex = (int) sourceChannel;
+			for( int sc = 0; sc < _sourceChannelKeywords.Length; sc++ ){
+				if( _computeShader.IsKeywordEnabled( _sourceChannelKeywords[ sc ] ) != ( sc == sourceChannelIndex ) ){
+					_computeShader.SetKeyword( _sourceChannelKeywords[ sc ], sc == sourceChannelIndex );
+				}
+			}
 
 			// Seed.
 			_computeShader.SetTexture( _SeedKernel,  ShaderIDs._SeedTexRead, sourceTexture );
@@ -149,12 +160,14 @@ namespace Simplex.Procedures
 
 		static RenderTexture CreateTexture3D( string name, Vector3Int resolution, GraphicsFormat format )
 		{
-			RenderTexture rt = new RenderTexture( resolution.x, resolution.y, 0, format, 0 );
-			rt.name = name;
-			rt.dimension = TextureDimension.Tex3D;
-			rt.volumeDepth = resolution.z;
-			rt.autoGenerateMips = false;
-			rt.enableRandomWrite = true;
+			RenderTexture rt = new RenderTexture( resolution.x, resolution.y, 0, format, 0 ){
+				name = name,
+				dimension = TextureDimension.Tex3D,
+				volumeDepth = resolution.z,
+				autoGenerateMips = false,
+				enableRandomWrite = true,
+			};
+			
 			rt.Create();
 			return rt;
 		}

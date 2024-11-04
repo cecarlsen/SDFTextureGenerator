@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [1.0.2] - 2024-11-04
+
+	- Renamed ScalarTexture3DToSdfTexture3DProcedure to Mask3DToSdfTexture3DProcedure.
+	- Added SourceChannel parameter with options R, G, B, A, and Luminance.
+
+
 ## [1.0.1] - 2024-01-15
 
 - Changed distance scaling to follow the [convention](https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html) of Unity's SDF Bake Tool: "the underlying surface scales such that the largest side of the Texture is of length 1".

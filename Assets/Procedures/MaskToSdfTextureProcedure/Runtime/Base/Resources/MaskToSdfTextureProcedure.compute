@@ -19,6 +19,7 @@
 #pragma kernel _ShowSeedsKernel
 
 #pragma multi_compile_local __ _ADD_BORDERS
+#pragma multi_compile_local _R _G _B _A _LUMINANCE
 
 #define THREAD_GROUP_WIDTH 8
 
@@ -29,7 +30,6 @@ RWTexture2D<float> _SdfTex;
 
 CBUFFER_START( Often )
 	float _SeedThreshold;
-	float2 _TexelSize;
 	uint2 _Resolution;
 CBUFFER_END
 
@@ -48,14 +48,35 @@ static const int2 offsets[ NEIGHBOUR_COUNT ] = {
 };
 
 
+#ifdef _LUMINANCE
+	// This equation: http://en.wikipedia.org/wiki/Luminance_(relative)
+	float RgbToLuminance( float3 colour )
+	{
+		return dot( float3( 0.2126f, 0.7152f, 0.0722f ), colour );
+	}
+#endif
+
+
 [numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
 void _SeedKernel( uint2 coord : SV_DispatchThreadID )
 {
 	if( coord.x >= _Resolution.x || coord.y >= _Resolution.y ) return;
 
 	// Sample and test for seed.
-	float2 uv = ( coord + 0.5 ) * _TexelSize;
-	bool isInsideSeed = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 ).r > _SeedThreshold;
+	float2 uv = ( coord + 0.5 ) / _Resolution;
+	float4 color = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 );
+	#if defined( _R )
+		float value = color.r;
+	#elif defined( _G ) 
+		float value = color.g;
+	#elif defined( _B ) 
+		float value = color.b;
+	#elif defined( _A ) 
+		float value = color.a;
+	#else
+		float value = RgbToLuminance( color.rgb );
+	#endif
+	bool isInsideSeed = value > _SeedThreshold;
 
 	// Since reading outside texture bounds returns zero, we shift all coordinates (1,1) so that (0,0) can be used to indicate "no seed coordinate".
 	int2 seed = coord + int2( 1, 1 );
@@ -135,7 +156,7 @@ void _DistKernel( uint2 coord : SV_DispatchThreadID )
 	// Use same convension as Unity's SDF Bake Tool
 	// "the underlying surface scales such that the largest side of the Texture is of length 1".
 	// https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html
-	sd *= min( _TexelSize.x, _TexelSize.y );
+	sd /= max( _Resolution.x, _Resolution.y );
 	
 	_SdfTex[ coord ] = sd;
 }
