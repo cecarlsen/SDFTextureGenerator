@@ -9,7 +9,7 @@ using UnityEngine.Rendering;
 
 namespace Simplex.Procedures
 {
-	public class MaskToSdfTexture3DProcedure
+	public class Mask3DToSdfTexture3DProcedure
 	{
 		RenderTexture _sdfTexture;
 		RenderTexture _floodTexture;
@@ -45,9 +45,9 @@ namespace Simplex.Procedures
 		}
 
 
-		public MaskToSdfTexture3DProcedure()
+		public Mask3DToSdfTexture3DProcedure()
 		{
-			_computeShader = Object.Instantiate( Resources.Load<ComputeShader>( nameof( MaskToSdfTexture3DProcedure ) ) );
+			_computeShader = Object.Instantiate( Resources.Load<ComputeShader>( nameof( Mask3DToSdfTexture3DProcedure ) ) );
 			_computeShader.hideFlags = HideFlags.HideAndDontSave;
 
 			_SeedKernel = _computeShader.FindKernel( nameof( _SeedKernel ) );

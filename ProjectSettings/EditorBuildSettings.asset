@@ -6,7 +6,7 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Procedures/MaskToSdfTexture3DProcedure/Example/MaskToSdfTexture3DProcedureExample.unity
+    path: Assets/Procedures/Mask3DToSdfTexture3DProcedure/Example/Mask3DToSdfTexture3DProcedureExample.unity
     guid: dd510de47c448784e8d5913af25124d0
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

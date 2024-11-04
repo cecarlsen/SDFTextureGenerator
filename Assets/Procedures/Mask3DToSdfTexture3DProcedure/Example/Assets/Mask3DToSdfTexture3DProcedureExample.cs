@@ -9,26 +9,26 @@ using UnityEngine.Events;
 namespace Simplex.Procedures.Examples
 {
 	[ExecuteInEditMode]
-	public class MaskToSdfTexture3DProcedureExample : MonoBehaviour
+	public class Mask3DToSdfTexture3DProcedureExample : MonoBehaviour
 	{
 		[SerializeField] Texture _sourceTexture3D = null;
 		[SerializeField] float _sourceValueThreshold = 0.5f;
-		[SerializeField] MaskToSdfTexture3DProcedure.SourceChannel _sourceChannel = MaskToSdfTexture3DProcedure.SourceChannel.R;
-		[SerializeField] MaskToSdfTexture3DProcedure.DownSampling _downSampling = MaskToSdfTexture3DProcedure.DownSampling.None;
-		[SerializeField] MaskToSdfTexture3DProcedure.Precision _precision = MaskToSdfTexture3DProcedure.Precision._32;
+		[SerializeField] Mask3DToSdfTexture3DProcedure.SourceChannel _sourceChannel = Mask3DToSdfTexture3DProcedure.SourceChannel.R;
+		[SerializeField] Mask3DToSdfTexture3DProcedure.DownSampling _downSampling = Mask3DToSdfTexture3DProcedure.DownSampling.None;
+		[SerializeField] Mask3DToSdfTexture3DProcedure.Precision _precision = Mask3DToSdfTexture3DProcedure.Precision._32;
 		[SerializeField] bool _addBorders = false;
 		[SerializeField] bool _showSource = false;
 
 		[Header("Output")]
 		[SerializeField] UnityEvent<RenderTexture> _sdfTexture3DEvent = new UnityEvent<RenderTexture>();
 
-		MaskToSdfTexture3DProcedure _procedure;
+		Mask3DToSdfTexture3DProcedure _procedure;
 
 
 		void OnEnable()
 		{
 			_procedure?.Release();
-			_procedure = new MaskToSdfTexture3DProcedure();
+			_procedure = new Mask3DToSdfTexture3DProcedure();
 		}
 
 
