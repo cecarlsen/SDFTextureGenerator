@@ -31,7 +31,7 @@ namespace Simplex.Procedures
 
 		[System.Serializable] public enum DownSampling { None, Half, Quater }
 		[System.Serializable] public enum Precision { _16, _32 }
-		[System.Serializable] public enum SourceChannel { R, G, B, A, Luminance }
+		[System.Serializable] public enum TextureScalar { R, G, B, A, Luminance }
 
 
 		static class ShaderIDs
@@ -57,7 +57,7 @@ namespace Simplex.Procedures
 			_ShowSeedsKernel = _computeShader.FindKernel( nameof( _ShowSeedsKernel ) );
 
 			_ADD_BORDERS = new LocalKeyword( _computeShader, nameof( _ADD_BORDERS ) );
-			var sourceChannelKeywordNames = System.Enum.GetNames( typeof( SourceChannel ) );
+			var sourceChannelKeywordNames = System.Enum.GetNames( typeof( TextureScalar ) );
 			_sourceChannelKeywords = new LocalKeyword[ sourceChannelKeywordNames.Length ];
 			for( int sc = 0; sc < _sourceChannelKeywords.Length; sc++ ){
 				_sourceChannelKeywords[ sc ] = new LocalKeyword( _computeShader, "_" + sourceChannelKeywordNames[ sc ].ToUpper() );
@@ -68,7 +68,7 @@ namespace Simplex.Procedures
 		public void Update
 		(
 			Texture sourceTexture, float sourceValueThreshold, 
-			SourceChannel sourceChannel = SourceChannel.R, DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorders = false,
+			TextureScalar sourceScalar = TextureScalar.R, DownSampling downSampling = DownSampling.None, Precision precision = Precision._32, bool addBorders = false,
 			bool _showSource = false
 		){
 
@@ -107,7 +107,7 @@ namespace Simplex.Procedures
 
 			// Set keywords.
 			if( _computeShader.IsKeywordEnabled( _ADD_BORDERS ) != addBorders ) _computeShader.SetKeyword( _ADD_BORDERS, addBorders );
-			int sourceChannelIndex = (int) sourceChannel;
+			int sourceChannelIndex = (int) sourceScalar;
 			for( int sc = 0; sc < _sourceChannelKeywords.Length; sc++ ){
 				if( _computeShader.IsKeywordEnabled( _sourceChannelKeywords[ sc ] ) != ( sc == sourceChannelIndex ) ){
 					_computeShader.SetKeyword( _sourceChannelKeywords[ sc ], sc == sourceChannelIndex );

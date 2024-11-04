@@ -4,7 +4,7 @@
 ## [1.0.6] - 2024-10-29
 
 	- Renamed ScalarTextureToSdfTextureProcedure to MaskToSdfTextureProcedure.
-	- Added SourceChannel parameter with options R, G, B, A, and Luminance.
+	- Added TextureScalar parameter with options R, G, B, A, and Luminance.
 
 
 ## [1.0.5] - 2024-01-15

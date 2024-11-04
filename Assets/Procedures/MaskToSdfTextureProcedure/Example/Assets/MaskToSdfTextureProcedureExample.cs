@@ -13,7 +13,7 @@ namespace Simplex.Procedures.Examples
 	{
 		[SerializeField] Texture _sourceTexture = null;
 		[SerializeField,Range(0f,1f)] float _sourceValueThreshold = 0.5f;
-		[SerializeField] MaskToSdfTextureProcedure.SourceChannel _sourceChannel = MaskToSdfTextureProcedure.SourceChannel.R;
+		[SerializeField] MaskToSdfTextureProcedure.TextureScalar _sourceChannel = MaskToSdfTextureProcedure.TextureScalar.R;
 		[SerializeField] MaskToSdfTextureProcedure.DownSampling _downSampling = MaskToSdfTextureProcedure.DownSampling.None;
 		[SerializeField] MaskToSdfTextureProcedure.Precision _precision = MaskToSdfTextureProcedure.Precision._32;
 		[SerializeField] bool _addBorders = false;

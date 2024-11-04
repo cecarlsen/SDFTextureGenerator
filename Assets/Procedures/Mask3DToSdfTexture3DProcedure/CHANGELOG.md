@@ -4,7 +4,7 @@
 ## [1.0.2] - 2024-11-04
 
 	- Renamed ScalarTexture3DToSdfTexture3DProcedure to Mask3DToSdfTexture3DProcedure.
-	- Added SourceChannel parameter with options R, G, B, A, and Luminance.
+	- Added TextureScalar parameter with options R, G, B, A, and Luminance.
 
 
 ## [1.0.1] - 2024-01-15
