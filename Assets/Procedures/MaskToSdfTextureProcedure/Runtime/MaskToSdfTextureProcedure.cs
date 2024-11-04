@@ -21,7 +21,7 @@ namespace Simplex.Procedures
 		int _ShowSeedsKernel;
 
 		LocalKeyword _ADD_BORDERS;
-		LocalKeyword[] _sourceChannelKeywords;
+		LocalKeyword[] _sourceScalarKeywords;
 
 		Vector2Int _groupThreadCount;
 
@@ -57,10 +57,10 @@ namespace Simplex.Procedures
 			_ShowSeedsKernel = _computeShader.FindKernel( nameof( _ShowSeedsKernel ) );
 
 			_ADD_BORDERS = new LocalKeyword( _computeShader, nameof( _ADD_BORDERS ) );
-			var sourceChannelKeywordNames = System.Enum.GetNames( typeof( TextureScalar ) );
-			_sourceChannelKeywords = new LocalKeyword[ sourceChannelKeywordNames.Length ];
-			for( int sc = 0; sc < _sourceChannelKeywords.Length; sc++ ){
-				_sourceChannelKeywords[ sc ] = new LocalKeyword( _computeShader, "_" + sourceChannelKeywordNames[ sc ].ToUpper() );
+			var sourceScalarKeywordNames = System.Enum.GetNames( typeof( TextureScalar ) );
+			_sourceScalarKeywords = new LocalKeyword[ sourceScalarKeywordNames.Length ];
+			for( int sc = 0; sc < _sourceScalarKeywords.Length; sc++ ){
+				_sourceScalarKeywords[ sc ] = new LocalKeyword( _computeShader, "_" + sourceScalarKeywordNames[ sc ].ToUpper() );
 			}
 		}
 
@@ -107,10 +107,10 @@ namespace Simplex.Procedures
 
 			// Set keywords.
 			if( _computeShader.IsKeywordEnabled( _ADD_BORDERS ) != addBorders ) _computeShader.SetKeyword( _ADD_BORDERS, addBorders );
-			int sourceChannelIndex = (int) sourceScalar;
-			for( int sc = 0; sc < _sourceChannelKeywords.Length; sc++ ){
-				if( _computeShader.IsKeywordEnabled( _sourceChannelKeywords[ sc ] ) != ( sc == sourceChannelIndex ) ){
-					_computeShader.SetKeyword( _sourceChannelKeywords[ sc ], sc == sourceChannelIndex );
+			int sourceScalarIndex = (int) sourceScalar;
+			for( int sc = 0; sc < _sourceScalarKeywords.Length; sc++ ){
+				if( _computeShader.IsKeywordEnabled( _sourceScalarKeywords[ sc ] ) != ( sc == sourceScalarIndex ) ){
+					_computeShader.SetKeyword( _sourceScalarKeywords[ sc ], sc == sourceScalarIndex );
 				}
 			}
 
