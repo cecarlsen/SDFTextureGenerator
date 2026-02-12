@@ -1,5 +1,6 @@
 trackSelection = true
 refreshSearchWindowsInPlayMode = false
+pickerAdvancedUI = false
 fetchPreview = true
 defaultFlags = 0
 keepOpen = false
@@ -75,6 +76,8 @@ searchItemFavorites = [
 savedSearchesSortOrder = 0
 showSavedSearchPanel = false
 hideTabs = false
+indexOnEditorStartup = true
+logIndexingPerformanceReport = false
 expandedQueries = [
 ]
 queryBuilder = false
@@ -83,3 +86,4 @@ helperWidgetCurrentArea = "all"
 disabledIndexers = ""
 minIndexVariations = 2
 findProviderIndexHelper = true
+itemIconSize = 32

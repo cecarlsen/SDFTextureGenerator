@@ -1,6 +1,18 @@
 # Changelog
 
 
+## [1.1.0] - 2026-02-12
+
+	- Added useSubPixelInterpolation option. When enabled, performs gradient-based subpixel interpolation for more accurate edge positions.
+	- Added optional double buffering to remove jitter (GPU race conditions).
+	- Added DownSampling.Eighth option.
+	- Fixed minor inside/outside distance conflict. Outside distance values represented distances to nearest inside pixels, and vise versa – not distances to the border between inside and outside, which lie between pixels. To compensate, distances has been reduced by 0.5 pixel.
+	- Utilized CommandBuffer for a minor performance gain.
+	- Fixed sampling reading bias towards 0,0.
+	- Improved comments.
+	- Removed show seeds option. This was mostly for development debugging purposes.
+
+
 ## [1.0.2] - 2024-11-04
 
 	- Renamed ScalarTexture3DToSdfTexture3DProcedure to Mask3DToSdfTexture3DProcedure.

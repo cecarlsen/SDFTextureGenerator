@@ -1,11 +1,9 @@
 /*
-	Copyright Carl Emil Carlsen 2021-2024
+	Copyright Carl Emil Carlsen 2021-2026
 	http://cec.dk
+	https://github.com/cecarlsen/SDFTextureGenerator
 
 	Approximated signed distance field (SDF) computation using the Jump Flooding algorithm (JFA).
-
-	Based on implementation by Demofox.
-	https://www.shadertoy.com/view/Mdy3DK
 
 	Explained here.
 	https://blog.demofox.org/2016/02/29/fast-voronoi-diagrams-and-distance-dield-textures-on-the-gpu-with-the-jump-flooding-algorithm/
@@ -16,28 +14,33 @@
 #pragma kernel _SeedKernel
 #pragma kernel _FloodKernel
 #pragma kernel _DistKernel
-#pragma kernel _ShowSeedsKernel
+//#pragma kernel _ShowSeedsKernel
 
-#pragma multi_compile_local __ _ADD_BORDERS
 #pragma multi_compile_local _R _G _B _A _LUMINANCE
+#pragma multi_compile_local __ _SUB_PIXEL_INTERPOLATION
+#pragma multi_compile_local __ _DOUBLE_BUFFERING
+#pragma multi_compile_local __ _ADD_BORDERS
 
 #define THREAD_GROUP_WIDTH 8
 
-Texture2D _SeedTexRead;
-RWTexture2D<uint4> _FloodTex;
-Texture2D<uint4> _FloodTexRead;
+Texture2D _SourceTexRead;
+RWTexture2D<float4> _FloodTex;
+Texture2D<float4> _FloodTexRead;
 RWTexture2D<float> _SdfTex;
 
 CBUFFER_START( Often )
-	float _SeedThreshold;
-	uint2 _Resolution;
+	float _Threshold;
+	int2 _Resolution;
+	int _DownSamplingStep; // 1, 2, 4, ..
 CBUFFER_END
 
 CBUFFER_START( Always )
-	int _StepSize;
+	int _JumpStep;
 CBUFFER_END
 
 SamplerState _LinearClamp;
+
+static const int2 off10 = int2( 1, 0 );
 
 
 #define NEIGHBOUR_COUNT 9
@@ -48,124 +51,194 @@ static const int2 offsets[ NEIGHBOUR_COUNT ] = {
 };
 
 
-#ifdef _LUMINANCE
-	// This equation: http://en.wikipedia.org/wiki/Luminance_(relative)
-	float RgbToLuminance( float3 colour )
-	{
-		return dot( float3( 0.2126f, 0.7152f, 0.0722f ), colour );
-	}
-#endif
+float dot2( float2 v ){ return dot( v, v ); }
 
 
-[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
-void _SeedKernel( uint2 coord : SV_DispatchThreadID )
+float SampleValue( int2 coord )
 {
-	if( coord.x >= _Resolution.x || coord.y >= _Resolution.y ) return;
-
-	// Sample and test for seed.
-	float2 uv = ( coord + 0.5 ) / _Resolution;
-	float4 color = _SeedTexRead.SampleLevel( _LinearClamp, uv, 0 );
+	// Sample at center of first and last pixel.
+	float2 sourceRes = _Resolution * _DownSamplingStep;
+	float2 uv = ( ( coord / ( _Resolution - 1.0 ) ) * ( sourceRes - 1.0 ) + 0.5 ) / sourceRes;
+	float4 color = _SourceTexRead.SampleLevel( _LinearClamp, uv, 0 );
 	#if defined( _R )
-		float value = color.r;
+		return color.r;
 	#elif defined( _G ) 
-		float value = color.g;
+		return color.g;
 	#elif defined( _B ) 
-		float value = color.b;
+		return color.b;
 	#elif defined( _A ) 
-		float value = color.a;
+		return color.a;
 	#else
-		float value = RgbToLuminance( color.rgb );
+		return dot( float3( 0.2126, 0.7152, 0.0722 ), color.rgb ); // Luminance equation: http://en.wikipedia.org/wiki/Luminance_(relative)
 	#endif
-	bool isInsideSeed = value > _SeedThreshold;
-
-	// Since reading outside texture bounds returns zero, we shift all coordinates (1,1) so that (0,0) can be used to indicate "no seed coordinate".
-	int2 seed = coord + int2( 1, 1 );
-
-	// TODO add border
-	#ifdef _ADD_BORDERS
-		if( coord.x == 0 || coord.y == 0 || coord.x >= _Resolution.x-1 || coord.y >= _Resolution.y-1 ) isInsideSeed = true;
-	#endif
-
-	// Store inside seeds at xy and outside seeds at zw.
-	_FloodTex[ coord ] = isInsideSeed ? uint4( seed, 0, 0 ) : uint4( 0, 0, seed );
 }
 
 
-
-groupshared uint2x3 sharedCoordDist[ NEIGHBOUR_COUNT ];
-
-[numthreads( 1, 1, NEIGHBOUR_COUNT )]
-void _FloodKernel( uint2 coord : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID )
+float2 SampleSubPixelCoord( int2 coord, float vC, out bool isEdge )
 {
-	// Get the jump offset.
-	int2 sampleCoord = coord + offsets[ gtId.z ] * _StepSize;
+	isEdge = false;
+	float2 newCoord = coord;
 
-	// Sample.
-	int4 seed = _FloodTex[ sampleCoord ]; // Reads outside bounds will return zeros.
-	int2 shiftedCoord = coord + int2( 1, 1 );
-	int4 diff = seed - shiftedCoord.xyxy;
-	sharedCoordDist[ gtId.z ] = int2x3(
-		seed.xy, any( seed.xy ) ? dot( diff.xy, diff.xy ) : 9999999, // enough to be ignored
-		seed.zw, any( seed.zw ) ? dot( diff.zw, diff.zw ) : 9999999
+	// Don't find sub pixels along texture boundaries.
+	if( any( coord <= 0 ) || any( coord >= _Resolution-1 ) ) return newCoord;
+
+	// Sample four neighbors (packed as NESW).
+	float4 vN = float4(
+		SampleValue( coord - off10.yx ),	// N (North)
+		SampleValue( coord + off10 ),		// E (East)
+		SampleValue( coord + off10.yx ),	// S (South)
+		SampleValue( coord - off10 )		// W (West)
 	);
 
-	// Wait until all threads in this group has executed issued reads/writes to groupshared memory.
-	GroupMemoryBarrier();
+	// For coordinates not neighboring an inside/outside transition, don't interpolate sub pixel.
+	bool isInsideC = vC > _Threshold;
+	bool4 isInsideN = vN > _Threshold;
+	if( all( isInsideN == isInsideC ) ) return newCoord;
 
-	// If first thread in group, read from shared memory and find coordinate with smallest distance.
-	if( gtId.z == 0 )
+	// Compute gradient.
+	float2 grad = ( vN.yz - vN.wx ) * 0.5; // Estimated slope over one pixel.
+	float gradSqMag = dot2( grad );
+	if( gradSqMag < 0.00001 ) return newCoord;
+	grad *= abs( vC - _Threshold ) / gradSqMag;
+
+	// Flip inside.
+	if( isInsideC ) grad *= -1;
+
+	// Snap to sub pixel edge and done.
+	newCoord += grad;
+	isEdge = true;
+	return newCoord;
+}
+
+
+
+[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
+void _SeedKernel( int2 coord : SV_DispatchThreadID )
+{
+	if( any( coord >= _Resolution ) ) return;
+
+	// Sample value.
+	float value = SampleValue( coord );
+	
+	// Optionally, add borders.
+	#ifdef _ADD_BORDERS
+		if( !all( coord ) || any( coord >= _Resolution - 1 ) ) value = _Threshold + 0.0001;
+	#endif
+
+	// Get optional sub pixel coord or default coord.
+	#ifdef _SUB_PIXEL_INTERPOLATION
+		bool isEdge;
+		float2 seedCoord = SampleSubPixelCoord( coord, value, isEdge );
+	#else
+		float2 seedCoord = coord;
+	#endif
+	
+	// Offset by one. We use (0,0) to mark invalid coords, so this is done to include (0,0) coord.
+	seedCoord += 1;
+	
+	// Store both inside and outside maps in one RGBA texture; Inside in RG, Outside in BA.
+	// Note that IQ found another way, by keeping an inside/outside flag and encoding everything into a uint: https://www.shadertoy.com/view/4XlyW8
+	bool isInside = value > _Threshold;
+	#ifdef _SUB_PIXEL_INTERPOLATION
+		// For sub pixel flood coords, pixels lying at the threshold contain both inside and outside coords.
+		float4 floodData;
+		if( isEdge ) floodData = seedCoord.xyxy;
+		else floodData = isInside ? float4( seedCoord, 0, 0 ) : float4( 0, 0, seedCoord );
+	#else
+		// For default flood coords, pixels contain either inside or outside coords.
+		float4 floodData = isInside ? float4( seedCoord, 0, 0 ) : float4( 0, 0, seedCoord );
+	#endif
+
+	// Write.
+	_FloodTex[ coord ] = floodData;
+}
+
+
+
+groupshared float2x3 sharedCoordDist[ NEIGHBOUR_COUNT ];
+
+[numthreads( 1, 1, NEIGHBOUR_COUNT )]
+void _FloodKernel( int2 coord : SV_DispatchThreadID, uint3 gtId : SV_GroupThreadID )
+{
+	// Get the jump offset.
+	uint neighborI = gtId.z;
+	int2 floodCoord = coord + offsets[ neighborI ] * _JumpStep;
+
+	// Each thread samples one pixel, computes square distance and stores the result in shared memory.
+	// On Nvidia and Metal hardware, reading outside texture bounds will return zero, but we take no such chances.
+	#ifdef _DOUBLE_BUFFERING
+		float4 seedCoords = any( floodCoord < 0 ) || any( floodCoord >= _Resolution ) ? 0 : _FloodTexRead[ floodCoord ];
+	#else
+		float4 seedCoords = any( floodCoord < 0 ) || any( floodCoord >= _Resolution ) ? 0 : _FloodTex[ floodCoord ];
+	#endif
+	float4 diff = seedCoords - ( coord + 1 ).xyxy;
+	sharedCoordDist[ neighborI ] = float2x3( // Ignore invalid seedCoords by assigning a high distance value.
+		seedCoords.xy, any( seedCoords.xy ) ? dot2( diff.xy ) : 99999,
+		seedCoords.zw, any( seedCoords.zw ) ? dot2( diff.zw ) : 99999
+	);
+	
+	// Wait until all threads in this group reach this line.
+	GroupMemoryBarrierWithGroupSync();
+
+	// First thread in the group reads from shared memory and finds coordinate with shortest distance.
+	if( neighborI == 0 )
 	{
-		uint bestOuterDist = 9999999;
-		uint bestInnerDist = 9999999;
-		uint2 bestOuterCoord = int2( 0, 0 );
-		uint2 bestInnerCoord = int2( 0, 0 );
-		uint2x3 data;
+		float3 closestInnerCoordDist = float3( 0, 0, 99999 );
+		float3 closestOuterCoordDist = float3( 0, 0, 99999 );
+		float2x3 data;
 		[unroll]
-		for( int i = 0; i < NEIGHBOUR_COUNT; i++ )
-		{
+		for( int i = 0; i < NEIGHBOUR_COUNT; i++ ){
 			data = sharedCoordDist[ i ];
-			if( data._m02 < bestInnerDist ){
-				bestInnerDist = data._m02;
-				bestInnerCoord = data._m00_m01;
-			}
-			if( data._m12 < bestOuterDist ){
-				bestOuterDist = data._m12;
-				bestOuterCoord = data._m10_m11;
-			}
+			if( data._m02 < closestInnerCoordDist.z ) closestInnerCoordDist = data._m00_m01_m02;
+			if( data._m12 < closestOuterCoordDist.z ) closestOuterCoordDist = data._m10_m11_m12;
 		}
 
-		// Write.
-		_FloodTex[ coord ] = uint4( bestInnerCoord, bestOuterCoord );
+		// Write updated flood coordinate.
+		_FloodTex[ coord ] = float4( closestInnerCoordDist.xy, closestOuterCoordDist.xy );
 	}
 }
 
 
 [numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
-void _DistKernel( uint2 coord : SV_DispatchThreadID )
+void _DistKernel( int2 coord : SV_DispatchThreadID )
 {
-	if( coord.x >= _Resolution.x || coord.y >= _Resolution.y ) return;
+	if( any( coord >= _Resolution ) ) return;
 
-	int4 closestCoords = _FloodTexRead[ coord ];
-	int2 shiftedCoord = coord + int2( 1, 1 );
-	float4 diff = closestCoords - shiftedCoord.xyxy;
-
-	float outerDist = any( closestCoords.xy ) ? length( diff.xy ) : 0;
-	float innerDist = any( closestCoords.zw ) ? length( diff.zw ) : 0;
-	float sd = outerDist - innerDist; // If coord is inside then outerDist will be zero, else innerDist will be zero.
+	// Read flood data and compute vector from this coord to closest inside and outside coord.
+	float4 closestSeedCoords = _FloodTexRead[ coord ];
+	float4 diffs = closestSeedCoords - ( coord + 1 ).xyxy;
 	
-	// Use same convension as Unity's SDF Bake Tool
+	// Compute signed distance.
+	float outerDist = length( diffs.xy ); // Closest inside seed, so outer distance.
+	float innerDist = length( diffs.zw ); // Closest outside seed, so inner distance.
+	#ifdef _SUB_PIXEL_INTERPOLATION
+		// For the sub pixel case, we have pixels with both inside and outside coords, so we must sample to determine if we are inside.
+		// Note: alternatively, we could store and keep track of a flag in the flood texture, but not sure it's worth it.
+		float value = SampleValue( coord );
+		bool isInside = value > _Threshold;
+		float sd = isInside ? -innerDist : outerDist;
+	#else
+		// For the default case, outerDist will be zero if coord is inside and innerDist will be zero if coord is outside.
+		float sd = outerDist - innerDist;
+	
+		// Compensate by 0.5 pixel so that the inside-outside zero border lies between pixels.
+		sd = sign( sd ) * ( abs( sd ) - 0.5 );
+	#endif
+
+	// Use same scaling convention as Unity's SDF Bake Tool
 	// "the underlying surface scales such that the largest side of the Texture is of length 1".
 	// https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html
 	sd /= max( _Resolution.x, _Resolution.y );
 	
+	// Done.
 	_SdfTex[ coord ] = sd;
 }
 
 
-[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
-void _ShowSeedsKernel( uint2 id : SV_DispatchThreadID )
-{
-	if( id.x >= _Resolution.x || id.y >= _Resolution.y ) return;
-
-	_SdfTex[ id ] = any( _FloodTexRead[ id ].xy ) ? 1 : 0;
-}
+//[numthreads( THREAD_GROUP_WIDTH, THREAD_GROUP_WIDTH, 1 )]
+//void _ShowSeedsKernel( int2 coord : SV_DispatchThreadID )
+//{
+//	if( any( coord >= _Resolution ) ) return;
+//
+//	_SdfTex[ coord ] = any( _FloodTexRead[ coord ].xy ) ? 1.0 : 0.0;
+//}

@@ -1,5 +1,5 @@
 /*
-	Copyright © Carl Emil Carlsen 2021-2024
+	Copyright ï¿½ Carl Emil Carlsen 2021-2024
 	http://cec.dk
 */
 

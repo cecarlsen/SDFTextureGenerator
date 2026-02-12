@@ -1,5 +1,5 @@
 /*
-	Copyright © Carl Emil Carlsen 2024
+	Copyright © Carl Emil Carlsen 2024-2026
 	http://cec.dk
 */
 
@@ -16,8 +16,9 @@ namespace Simplex.Procedures.Examples
 		[SerializeField] Mask3DToSdfTexture3DProcedure.TextureScalar _sourceChannel = Mask3DToSdfTexture3DProcedure.TextureScalar.R;
 		[SerializeField] Mask3DToSdfTexture3DProcedure.DownSampling _downSampling = Mask3DToSdfTexture3DProcedure.DownSampling.None;
 		[SerializeField] Mask3DToSdfTexture3DProcedure.Precision _precision = Mask3DToSdfTexture3DProcedure.Precision._32;
+		[SerializeField] bool _useSubPixelInterpolation = true;
+		[SerializeField] bool _useDoubleBuffering = false;
 		[SerializeField] bool _addBorders = false;
-		[SerializeField] bool _showSource = false;
 
 		[Header("Output")]
 		[SerializeField] UnityEvent<RenderTexture> _sdfTexture3DEvent = new UnityEvent<RenderTexture>();
@@ -46,7 +47,10 @@ namespace Simplex.Procedures.Examples
 
 		void Update()
 		{
-			_procedure.Update( _sourceTexture3D, _sourceValueThreshold, _sourceChannel, _downSampling, _precision, _addBorders, _showSource );
+			_procedure.Update(
+				_sourceTexture3D, _sourceValueThreshold, _sourceChannel, _downSampling, _precision, 
+				_useSubPixelInterpolation, _useDoubleBuffering, _addBorders
+			);
 			_sdfTexture3DEvent.Invoke( _procedure.sdfTexture );
 		}
 	}
