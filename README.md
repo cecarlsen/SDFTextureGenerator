@@ -12,7 +12,7 @@ There are two main procedures in this repo:
 ![Splash](https://raw.githubusercontent.com/cecarlsen/SDFTextureGenerator/master/ReadmeImages/Splash.jpg)
 
 
-### Impleementation notes
+### Implementation notes
 
 - Using a single texture to store both inside and outside seeds, reducing the number of dispatch calls and texture R/W.  
 - Using GPU group shared memory to reduce reads per thread.  
