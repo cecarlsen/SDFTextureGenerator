@@ -23,13 +23,23 @@ namespace Simplex.Procedures.Examples
 		[Header("Output")]
 		[SerializeField] UnityEvent<RenderTexture> _sdfTexture3DEvent = new UnityEvent<RenderTexture>();
 
+		[Header("Assets")]
+		[SerializeField] ComputeShader _computeShaderAsset;
+
 		Mask3DToSdfTexture3DProcedure _procedure;
 
 
 		void OnEnable()
 		{
 			_procedure?.Release();
-			_procedure = new Mask3DToSdfTexture3DProcedure();
+			_procedure = null;
+
+			if( !_computeShaderAsset){
+				Debug.LogError( "ComputeShader asset missing." );
+				return;
+			}
+
+			_procedure = new Mask3DToSdfTexture3DProcedure( _computeShaderAsset );
 		}
 
 
@@ -47,6 +57,8 @@ namespace Simplex.Procedures.Examples
 
 		void Update()
 		{
+			if( _procedure == null ) return;
+
 			_procedure.Update(
 				_sourceTexture3D, _sourceValueThreshold, _sourceChannel, _downSampling, _precision, 
 				_useSubPixelInterpolation, _useDoubleBuffering, _addBorders

@@ -30,6 +30,9 @@ namespace Simplex.Procedures.Examples
 		[Header("Output")]
 		[SerializeField] UnityEvent<RenderTexture> _sdfTextureEvent = new UnityEvent<RenderTexture>();
 
+		[Header("Assets")]
+		[SerializeField] ComputeShader _computeShaderAsset;
+
 		MaskToSdfTextureProcedure _procedure;
 
 		Texture2D _sdfReadbackTexture;
@@ -44,7 +47,7 @@ namespace Simplex.Procedures.Examples
 		void OnEnable()
 		{
 			_procedure?.Release();
-			_procedure = new MaskToSdfTextureProcedure();
+			_procedure = new MaskToSdfTextureProcedure( _computeShaderAsset );
 		}
 
 

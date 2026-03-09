@@ -1,6 +1,13 @@
 # Changelog
 
 
+
+## [1.1.1] - 2026-03-09
+
+	- Changed procedure to require compute shader asset on construction. This way the shader is only compiled and included in builds when it's referenced in a used scene.
+	- Fixed minor extrapolation issue along texture boundaries.
+
+
 ## [1.1.0] - 2026-02-12
 
 	- Added useSubPixelInterpolation option. When enabled, performs gradient-based subpixel interpolation for more accurate edge positions.

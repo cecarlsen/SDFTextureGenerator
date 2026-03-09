@@ -60,6 +60,12 @@ float SampleValue( int2 coord )
 	float2 sourceRes = _Resolution * _DownSamplingStep;
 	float2 uv = ( ( coord / ( _Resolution - 1.0 ) ) * ( sourceRes - 1.0 ) + 0.5 ) / sourceRes;
 	float4 color = _SourceTexRead.SampleLevel( _LinearClamp, uv, 0 );
+
+	// Optionally, add borders.
+	#ifdef _ADD_BORDERS
+		if( any( coord <= 0 ) || any( coord >= _Resolution - 1 ) ) color = _Threshold + 1.0;
+	#endif
+
 	#if defined( _R )
 		return color.r;
 	#elif defined( _G ) 
@@ -79,24 +85,32 @@ float2 SampleSubPixelCoord( int2 coord, float vC, out bool isEdge )
 	isEdge = false;
 	float2 newCoord = coord;
 
-	// Don't find sub pixels along texture boundaries.
-	if( any( coord <= 0 ) || any( coord >= _Resolution-1 ) ) return newCoord;
+	// Don't find sub pixels along texture boundaries. NEW: we now extrapolate along borders, see below.
+	//if( any( coord <= 0 ) || any( coord >= _Resolution-1 ) ) return newCoord;
 
-	// Sample four neighbors (packed as NESW).
+	// Sample four neighbors (packed as ESWN). Remember we are sampling using linear clamp.
 	float4 vN = float4(
-		SampleValue( coord - off10.yx ),	// N (North)
 		SampleValue( coord + off10 ),		// E (East)
 		SampleValue( coord + off10.yx ),	// S (South)
-		SampleValue( coord - off10 )		// W (West)
+		SampleValue( coord - off10 ),		// W (West)
+		SampleValue( coord - off10.yx )		// N (North)
 	);
 
+	// Fix boundaries by extrapolating.
+	float4 cDiff2 = ( vC.xxxx - vN );// * 2.0;
+	if( coord.x == _Resolution.x-1 ) vN.x = vN.z + cDiff2.z;
+	if( coord.y == _Resolution.y-1 ) vN.y = vN.w + cDiff2.w;
+	if( coord.x == 0 ) vN.z = vN.x + cDiff2.x;
+	if( coord.y == 0 ) vN.w = vN.y + cDiff2.y;
+
 	// For coordinates not neighboring an inside/outside transition, don't interpolate sub pixel.
+	//bool atBoundary = any( coord <= 0 ) || any( coord >= _Resolution-1 );
 	bool isInsideC = vC > _Threshold;
 	bool4 isInsideN = vN > _Threshold;
-	if( all( isInsideN == isInsideC ) ) return newCoord;
+	if( all( isInsideC == isInsideN ) ) return newCoord;
 
 	// Compute gradient.
-	float2 grad = ( vN.yz - vN.wx ) * 0.5; // Estimated slope over one pixel.
+	float2 grad = ( vN.xy - vN.zw ) * 0.5; // Estimated slope over one pixel.
 	float gradSqMag = dot2( grad );
 	if( gradSqMag < 0.00001 ) return newCoord;
 	grad *= abs( vC - _Threshold ) / gradSqMag;
@@ -119,11 +133,6 @@ void _SeedKernel( int2 coord : SV_DispatchThreadID )
 
 	// Sample value.
 	float value = SampleValue( coord );
-	
-	// Optionally, add borders.
-	#ifdef _ADD_BORDERS
-		if( !all( coord ) || any( coord >= _Resolution - 1 ) ) value = _Threshold + 0.0001;
-	#endif
 
 	// Get optional sub pixel coord or default coord.
 	#ifdef _SUB_PIXEL_INTERPOLATION
@@ -133,11 +142,11 @@ void _SeedKernel( int2 coord : SV_DispatchThreadID )
 		float2 seedCoord = coord;
 	#endif
 	
-	// Offset by one. We use (0,0) to mark invalid coords, so this is done to include (0,0) coord.
+	// Offset by one. We use (0,0) to mark invalid coords, so we shift to include (0,0) coord.
 	seedCoord += 1;
 	
 	// Store both inside and outside maps in one RGBA texture; Inside in RG, Outside in BA.
-	// Note that IQ found another way, by keeping an inside/outside flag and encoding everything into a uint: https://www.shadertoy.com/view/4XlyW8
+	// Note that IQ found another way, by keeping an inside/outside flag and encoding everything into a uint. Not sure how that would work with sub pixel interpolation though: https://www.shadertoy.com/view/4XlyW8
 	bool isInside = value > _Threshold;
 	#ifdef _SUB_PIXEL_INTERPOLATION
 		// For sub pixel flood coords, pixels lying at the threshold contain both inside and outside coords.

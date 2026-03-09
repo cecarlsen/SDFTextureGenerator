@@ -57,9 +57,9 @@ namespace Simplex.Procedures
 		}
 
 
-		public MaskToSdfTextureProcedure()
+		public MaskToSdfTextureProcedure( ComputeShader computeShaderAsset )
 		{
-			_computeShader = Object.Instantiate( Resources.Load<ComputeShader>( nameof( MaskToSdfTextureProcedure ) ) );
+			_computeShader = Object.Instantiate( computeShaderAsset );
 			_computeShader.hideFlags = HideFlags.HideAndDontSave;
 
 			_SeedKernel = _computeShader.FindKernel( nameof( _SeedKernel ) );
