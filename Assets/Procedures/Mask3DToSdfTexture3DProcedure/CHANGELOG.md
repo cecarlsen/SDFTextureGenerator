@@ -1,6 +1,11 @@
 # Changelog
 
 
+## [1.1.2] - 2026-03-12
+
+	- Fixed scaling issue on z axis.
+	- Changed the way addBorder works when useSubPixelInterpolation is enabled. Instead of filling a 1px border with values above the threshold, we move coordinates to the border edge.
+
 
 ## [1.1.1] - 2026-03-09
 

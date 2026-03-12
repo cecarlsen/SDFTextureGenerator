@@ -101,8 +101,9 @@ namespace Simplex.Procedures
 
 			// Ensure and adapt resources.
 			if( _cmd == null ){
-				_cmd = new CommandBuffer();
-				_cmd.name = nameof( Mask3DToSdfTexture3DProcedure );
+				_cmd = new CommandBuffer(){
+					name = nameof( Mask3DToSdfTexture3DProcedure )	
+				};
 			}
 			int resolutionZ = sourceTexture is RenderTexture ? ( sourceTexture as RenderTexture ).volumeDepth : ( sourceTexture as Texture3D ).depth;
 			var resolution = new Vector3Int( sourceTexture.width, sourceTexture.height, resolutionZ );
@@ -132,16 +133,17 @@ namespace Simplex.Procedures
 					Mathf.CeilToInt( resolution.y / (float) threadGroupLength ),
 					Mathf.CeilToInt( resolution.z / (float) threadGroupLength )
 				);
+				int resMax = Mathf.Max( Mathf.Max( resolution.x, resolution.y ), resolution.z );
+				int nearPow2 = Mathf.NextPowerOfTwo( resMax );
+				const int precision16 = 65535;// We are storing each coord component in 16bits, so decimal precision is quite limited.
+				int coordPrecition = precision16 / ( nearPow2 + 1 ); // Increase coordinate precision as texture resolution lowers. For a 1024 texture we have 64 (65536/1024) unique decimal values.
+				_computeShader.SetInt( ShaderIDs._CoordPrecision, coordPrecition );
 			}
 			if( resize || ( !useDoubleBuffering && updateDoubleBuffering ) ){
 				_computeShader.SetTexture( _FloodKernel, ShaderIDs._FloodTex, _floodTexture );
 				_computeShader.SetTexture( _DistKernel, ShaderIDs._FloodTexRead, _floodTexture );
 			}
 			_usingDoubleBuffering = useDoubleBuffering;
-			int resMax = Mathf.Max( Mathf.Max( resolution.x, resolution.y ), resolution.z );
-			int nearPow2 = Mathf.NextPowerOfTwo( resMax );
-			const int precision16 = 65536; // We are storing each coord component in 16bits, so decimal precision is quite limited.
-			int coordPrecition = precision16 / nearPow2; // Increase coordinate precision as texture resolution lowers. For a 1024 texture we have 64 (65536/1024) unique decimal values.
 
 			// Set keywords.
 			if( _computeShader.IsKeywordEnabled( _SUB_PIXEL_INTERPOLATION ) != useSubPixelInterpolation ) _computeShader.SetKeyword( _SUB_PIXEL_INTERPOLATION, useSubPixelInterpolation );
@@ -161,7 +163,6 @@ namespace Simplex.Procedures
 				_computeShader.SetInt( ShaderIDs._DownSamplingStep, downSamplingStep );
 			}
 			_computeShader.SetFloat( ShaderIDs._Threshold, sourceValueThreshold );
-			_computeShader.SetInt( ShaderIDs._CoordPrecision, coordPrecition );
 
 			// Build command buffer.
 			if( rebuildCmd )

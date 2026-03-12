@@ -101,8 +101,10 @@ namespace Simplex.Procedures
 
 			// Ensure and adapt resources.
 			if( _cmd == null ){
-				_cmd = new CommandBuffer();
-				_cmd.name = nameof( MaskToSdfTextureProcedure );
+				_cmd = new CommandBuffer(){
+					name = nameof( MaskToSdfTextureProcedure )
+				};
+				
 			}
 			var resolution = new Vector2Int( sourceTexture.width, sourceTexture.height );
 			int downSamplingStep = (int) Mathf.Pow( 2, (int) downSampling );

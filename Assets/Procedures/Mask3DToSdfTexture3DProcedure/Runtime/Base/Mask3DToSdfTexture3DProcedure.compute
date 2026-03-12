@@ -127,11 +127,6 @@ float SampleValue( int3 coord )
 	float3 uv = ( ( coord / ( _Resolution - 1.0 ) ) * ( sourceRes - 1.0 ) + 0.5 ) / sourceRes;
 	float4 color = _SourceTexRead.SampleLevel( _LinearClamp, uv, 0 );
 
-	// Optionally, add borders.
-	#ifdef _ADD_BORDERS
-		if( any( coord <= 0 ) || any( coord >= _Resolution - 1 ) ) color = _Threshold + 1.0;
-	#endif
-
 	#if defined( _R )
 		return color.r;
 	#elif defined( _G ) 
@@ -151,9 +146,6 @@ float3 SampleSubPixelCoord( int3 coord, float vC, out bool isEdge )
 	isEdge = false;
 	float3 newCoord = coord;
 
-	// Don't find sub pixels along texture boundaries. NEW: we now extrapolate along borders, see below.
-	//if( any( coord <= 0 ) || any( coord >= _Resolution-1 ) ) return newCoord;
-
 	// Sample six neighbors (with positive and negative offsets). Remember we are sampling using linear clamp.
 	float3 vNPos = float3(
 		SampleValue( coord + off10.xyy ),
@@ -166,6 +158,12 @@ float3 SampleSubPixelCoord( int3 coord, float vC, out bool isEdge )
 		SampleValue( coord - off10.yyx )
 	);
 
+	// For coordinates not neighboring an inside/outside transition, don't interpolate sub pixel.
+	bool isInsideC = vC > _Threshold;
+	bool3 isInsideNPos = vNPos > _Threshold;
+	bool3 isInsideNNeg = vNNeg > _Threshold;
+	if( all( isInsideNPos == isInsideC ) && all( isInsideNNeg == isInsideC ) ) return newCoord;
+
 	// Fix boundaries by extrapolating.
 	float3 cDiffPos2 = ( vC.xxx - vNPos ) * 2.0;
 	float3 cDiffNeg2 = ( vC.xxx - vNNeg ) * 2.0;
@@ -175,13 +173,6 @@ float3 SampleSubPixelCoord( int3 coord, float vC, out bool isEdge )
 	if( coord.x == 0 ) vNNeg.x = vNPos.x + cDiffPos2.x;
 	if( coord.y == 0 ) vNNeg.y = vNPos.y + cDiffPos2.y;
 	if( coord.z == 0 ) vNNeg.z = vNPos.z + cDiffPos2.z;
-
-	// For coordinates not neighboring an inside/outside transition, don't interpolate sub pixel.
-	//bool atBoundary = any( coord <= 0 ) || any( coord >= _Resolution-1 );
-	bool isInsideC = vC > _Threshold;
-	bool3 isInsideNPos = vNPos > _Threshold;
-	bool3 isInsideNNeg = vNNeg > _Threshold;
-	if( all( isInsideNPos == isInsideC ) && all( isInsideNNeg == isInsideC ) ) return newCoord;
 
 	// Compute gradient.
 	float3 grad = ( vNPos - vNNeg ) * 0.5; // Estimated slope over one pixel.
@@ -211,8 +202,24 @@ void _SeedKernel( int3 coord : SV_DispatchThreadID )
 	#ifdef _SUB_PIXEL_INTERPOLATION
 		bool isEdge;
 		float3 seedCoord = SampleSubPixelCoord( coord, value, isEdge );
+		// Optionally, add borders. Here we do it by pushing the coordiate to the edge.
+		#ifdef _ADD_BORDERS
+			if( any( coord == 0 ) || any( coord == _Resolution-1 ) ){ // Not sure this conditional adds any benefit.
+				if( coord.x == _Resolution.x-1 ) seedCoord.x = _Resolution.x - 0.5;
+				if( coord.y == _Resolution.y-1 ) seedCoord.y = _Resolution.y - 0.5;
+				if( coord.z == _Resolution.z-1 ) seedCoord.z = _Resolution.z - 0.5;
+				if( coord.x == 0 ) seedCoord.x = - 0.5;
+				if( coord.y == 0 ) seedCoord.y = - 0.5;
+				if( coord.z == 0 ) seedCoord.z = - 0.5;
+				isEdge = true;
+			}
+		#endif
 	#else
 		float3 seedCoord = coord;
+		// Optionally, add borders. Here we do it by setting the edge pixels above the threshold.
+		#ifdef _ADD_BORDERS
+			if( any( coord == 0 ) || any( coord == _Resolution-1 ) ) value = _Threshold + 1.0;
+		#endif
 	#endif
 	
 	// Offset by one. We use (0,0) to mark invalid coords, so this is done to include (0,0) coord.
@@ -311,8 +318,8 @@ void _DistKernel( int3 coord : SV_DispatchThreadID )
 	float outerDist = length( innerDiff );
 	float innerDist = length( outerDiff );
 	#ifdef _SUB_PIXEL_INTERPOLATION
-		// For the sub pixel case, we have pixels with both inside and outside coords, so we must sample to determine if we are inside.
-		// isInside is stored in in closestInnerSeedCoordU.w, so that we don't have to read the source texture.
+		// For the sub pixel case, we have pixels with both inside and outside coords, so we must determine if we are inside.
+		// isInside is stored in in closestInnerSeedCoordU.w, so that we don't have to sample the source texture.
 		bool isInside = closestInnerSeedCoordU.w > 0;
 		float sd = isInside ? -innerDist : outerDist;
 	#else
@@ -326,7 +333,7 @@ void _DistKernel( int3 coord : SV_DispatchThreadID )
 	// Use same convension as Unity's SDF Bake Tool
 	// "the underlying surface scales such that the largest side of the Texture is of length 1".
 	// https://docs.unity3d.com/Packages/com.unity.visualeffectgraph@15.0/manual/sdf-in-vfx-graph.html
-	sd /= max( max( _Resolution.x, _Resolution.y ), _Resolution.y );
+	sd /= max( max( _Resolution.x, _Resolution.y ), _Resolution.z );
 	
 	// Done.
 	_SdfTex[ coord ] = sd;

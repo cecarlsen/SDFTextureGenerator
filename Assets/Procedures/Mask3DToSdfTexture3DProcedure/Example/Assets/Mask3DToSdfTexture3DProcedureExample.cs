@@ -18,7 +18,7 @@ namespace Simplex.Procedures.Examples
 		[SerializeField] Mask3DToSdfTexture3DProcedure.Precision _precision = Mask3DToSdfTexture3DProcedure.Precision._32;
 		[SerializeField] bool _useSubPixelInterpolation = true;
 		[SerializeField] bool _useDoubleBuffering = false;
-		[SerializeField] bool _addBorders = false;
+		[SerializeField,Tooltip("Note that border will eat up a one pixel border when useSubPixelInterpolation is disabled.")] bool _addBorders = false;
 
 		[Header("Output")]
 		[SerializeField] UnityEvent<RenderTexture> _sdfTexture3DEvent = new UnityEvent<RenderTexture>();

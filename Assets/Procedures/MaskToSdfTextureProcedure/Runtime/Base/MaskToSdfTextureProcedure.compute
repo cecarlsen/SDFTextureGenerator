@@ -61,11 +61,6 @@ float SampleValue( int2 coord )
 	float2 uv = ( ( coord / ( _Resolution - 1.0 ) ) * ( sourceRes - 1.0 ) + 0.5 ) / sourceRes;
 	float4 color = _SourceTexRead.SampleLevel( _LinearClamp, uv, 0 );
 
-	// Optionally, add borders.
-	#ifdef _ADD_BORDERS
-		if( any( coord <= 0 ) || any( coord >= _Resolution - 1 ) ) color = _Threshold + 1.0;
-	#endif
-
 	#if defined( _R )
 		return color.r;
 	#elif defined( _G ) 
@@ -85,9 +80,6 @@ float2 SampleSubPixelCoord( int2 coord, float vC, out bool isEdge )
 	isEdge = false;
 	float2 newCoord = coord;
 
-	// Don't find sub pixels along texture boundaries. NEW: we now extrapolate along borders, see below.
-	//if( any( coord <= 0 ) || any( coord >= _Resolution-1 ) ) return newCoord;
-
 	// Sample four neighbors (packed as ESWN). Remember we are sampling using linear clamp.
 	float4 vN = float4(
 		SampleValue( coord + off10 ),		// E (East)
@@ -96,18 +88,17 @@ float2 SampleSubPixelCoord( int2 coord, float vC, out bool isEdge )
 		SampleValue( coord - off10.yx )		// N (North)
 	);
 
+	// For coordinates not neighboring an inside/outside transition, don't interpolate sub pixel.
+	bool isInsideC = vC > _Threshold;
+	bool4 isInsideN = vN > _Threshold;
+	if( all( isInsideC == isInsideN ) ) return newCoord;
+
 	// Fix boundaries by extrapolating.
-	float4 cDiff2 = ( vC.xxxx - vN );// * 2.0;
+	float4 cDiff2 = ( vC.xxxx - vN ) * 2.0;
 	if( coord.x == _Resolution.x-1 ) vN.x = vN.z + cDiff2.z;
 	if( coord.y == _Resolution.y-1 ) vN.y = vN.w + cDiff2.w;
 	if( coord.x == 0 ) vN.z = vN.x + cDiff2.x;
 	if( coord.y == 0 ) vN.w = vN.y + cDiff2.y;
-
-	// For coordinates not neighboring an inside/outside transition, don't interpolate sub pixel.
-	//bool atBoundary = any( coord <= 0 ) || any( coord >= _Resolution-1 );
-	bool isInsideC = vC > _Threshold;
-	bool4 isInsideN = vN > _Threshold;
-	if( all( isInsideC == isInsideN ) ) return newCoord;
 
 	// Compute gradient.
 	float2 grad = ( vN.xy - vN.zw ) * 0.5; // Estimated slope over one pixel.
@@ -121,6 +112,8 @@ float2 SampleSubPixelCoord( int2 coord, float vC, out bool isEdge )
 	// Snap to sub pixel edge and done.
 	newCoord += grad;
 	isEdge = true;
+
+
 	return newCoord;
 }
 
@@ -138,8 +131,22 @@ void _SeedKernel( int2 coord : SV_DispatchThreadID )
 	#ifdef _SUB_PIXEL_INTERPOLATION
 		bool isEdge;
 		float2 seedCoord = SampleSubPixelCoord( coord, value, isEdge );
+		// Optionally, add borders. Here we do it by pushing the coordiate to the edge.
+		#ifdef _ADD_BORDERS
+			if( any( coord == 0 ) || any( coord == _Resolution-1 ) ){ // Not sure this conditional adds any benefit.
+				if( coord.x == _Resolution.x-1 ) seedCoord.x = _Resolution.x - 0.5;
+				if( coord.y == _Resolution.y-1 ) seedCoord.y = _Resolution.y - 0.5;
+				if( coord.x == 0 ) seedCoord.x = - 0.5;
+				if( coord.y == 0 ) seedCoord.y = - 0.5;
+				isEdge = true;
+			}
+		#endif
 	#else
 		float2 seedCoord = coord;
+		// Optionally, add borders. Here we do it by setting the edge pixels above the threshold.
+		#ifdef _ADD_BORDERS
+			if( any( coord == 0 ) || any( coord == _Resolution-1 ) ) value = _Threshold + 1.0;
+		#endif
 	#endif
 	
 	// Offset by one. We use (0,0) to mark invalid coords, so we shift to include (0,0) coord.
